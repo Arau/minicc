@@ -1,8 +1,20 @@
 #include <algorithm>
 #include <sstream>
+#include <string>
 #include "ast.hh"
 #include "type_checker.hh"
 using namespace std;
+
+
+string TypeChecker::get_pos(AstNode *x) {
+        int line, col;
+        line = x->ini_line();
+        col  = x->ini_col();
+        string res = to_string(line) + "," + to_string(col) + ": ";
+        return res;
+}
+
+bool TypeChecker::is_boolean_expr(AstNode *x) {}
 
 void TypeChecker::visit_program(Program* x) {
    //out() << "Program{" << endl;
@@ -285,15 +297,14 @@ void TypeChecker::visit_exprstmt(ExprStmt* x) {
 }
 
 void TypeChecker::visit_ifstmt(IfStmt *x) {
-   //out() << "IfStmt(";
    x->cond->accept(this);
-   //out() << ", ";
-   x->then->accept(this);
+   if (not is_boolean_expr( x->cond )) {
+        string pos = get_pos(x->cond);
+        cerr << pos << "int expression in if condition" << endl;
+   }
    if (x->els) {
-      //out() << ", ";
       x->els->accept(this);
    }
-   //out() << ")";
 }
 
 void TypeChecker::visit_iterstmt(IterStmt *x) {

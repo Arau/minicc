@@ -31,6 +31,9 @@ struct AstNode {
    virtual std::string describe()     const { return "UNIMPLEMENTED"; }
                  Range span()         const { return Range(ini, fin); }
 
+    int ini_line()                    const { return ini.l(); }
+    int ini_col()                     const { return ini.c(); }
+
    template<typename X>
                   bool is()           const { return dynamic_cast<const X*>(this) != 0; }
 };
@@ -60,16 +63,16 @@ struct CommentSeq {
    }
    bool starts_with_endl()  const { return !items.empty() and items.front().kind == Comment::endline; }
    bool ends_with_endl()    const { return !items.empty() and items.back().kind  == Comment::endline; }
-   bool ends_with_empty_line() const { 
+   bool ends_with_empty_line() const {
       const int sz = items.size();
-      return sz >= 2 and 
+      return sz >= 2 and
          (items[sz-2].kind == Comment::endline and items[sz-1].kind == Comment::endline);
    }
 
    void remove_endls() {
-      items.erase(std::remove_if(items.begin(), items.end(), 
+      items.erase(std::remove_if(items.begin(), items.end(),
                                  [](Comment& c) {
-                                    return c.kind == Comment::endline; 
+                                    return c.kind == Comment::endline;
                                  }),
                   items.end());
    }
@@ -104,7 +107,7 @@ struct Include : public AstNode {
    std::string filename;
    bool global;
 
-   Include(std::string _filename = "", bool _global = false) 
+   Include(std::string _filename = "", bool _global = false)
       : filename(_filename), global(_global) {}
 
    void accept(AstVisitor* v);
@@ -225,10 +228,10 @@ struct Block : public Stmt {
 // Expressions /////////////////////////////////////////////
 
 struct Expr : public AstNode {
-   enum Kind { 
+   enum Kind {
       Unknown,
-      // pm_expression 
-      Multiplicative, Additive, Shift, Relational, Equality, 
+      // pm_expression
+      Multiplicative, Additive, Shift, Relational, Equality,
       BitAnd, BitXor, BitOr, LogicalAnd, LogicalOr, Conditional,
       Assignment, Comma, Infinite
    };
@@ -334,15 +337,15 @@ struct IncrExpr : public UnaryExpr {
    std::string describe() const;
 };
 
-struct NegExpr : public UnaryExpr { 
+struct NegExpr : public UnaryExpr {
    void accept(AstVisitor *v);
 };
 
-struct AddrExpr : public UnaryExpr { 
+struct AddrExpr : public UnaryExpr {
    void accept(AstVisitor *v);
 };
 
-struct DerefExpr : public UnaryExpr { 
+struct DerefExpr : public UnaryExpr {
    void accept(AstVisitor *v);
 };
 
@@ -388,7 +391,7 @@ struct TypeSpec : public AstNode {
    static const std::string QualifiersNames[];
 
    enum Qualifiers {
-      Const    = 0, Volatile = 1, Mutable = 2, 
+      Const    = 0, Volatile = 1, Mutable = 2,
       Register = 3, Auto     = 4, Extern  = 5
    };
 
@@ -417,7 +420,7 @@ struct FuncDecl : public AstNode {
    Ident *id;
    std::vector<Param*> params;
    Block* block;
-   
+
    FuncDecl(Ident *_id) : id(_id) {}
    void accept(AstVisitor *v);
    bool has_errors() const;
@@ -426,7 +429,7 @@ struct FuncDecl : public AstNode {
 struct StructDecl : public AstNode {
    Ident *id;
    std::vector<DeclStmt*> decls;
-   
+
    StructDecl() : id(0) {}
    void accept(AstVisitor *v);
    bool has_errors() const;
@@ -464,13 +467,13 @@ class ReadWriter {
    std::vector<std::ostringstream*> _stack; // temporary output
 
    static const int TAB_WIDTH = 3;
-   
+
 protected:
    enum OutType { normal, beginl };
 
    std::ostream& out(OutType typ = normal);
-   void indent(int x) { 
-      _indent += x; 
+   void indent(int x) {
+      _indent += x;
       assert(_indent >= 0);
    }
 
@@ -489,8 +492,8 @@ public:
    ReadWriter(std::ostream *o)                          : _indent(0),         _out(o) {}
    ReadWriter(std::istream *i = 0, std::ostream *o = 0) : _indent(0), _in(i), _out(o) {}
 
-   std::string indentation() const { 
-      return std::string(_indent * TAB_WIDTH, ' '); 
+   std::string indentation() const {
+      return std::string(_indent * TAB_WIDTH, ' ');
    }
 
    void set_in(std::istream *i)  { _in  = i; }

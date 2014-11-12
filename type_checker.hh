@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <iostream>
+#include <string>
 #include "ast.hh"
 
 class TypeChecker : public AstVisitor, public ReadWriter {
@@ -48,6 +49,10 @@ public:
 
    void visit_errorstmt(Stmt::Error *x);
    void visit_errorexpr(Expr::Error *x);
+
+private:
+   std::string get_pos(AstNode*);
+   bool is_boolean_expr(AstNode*);
 };
 
 #endif
