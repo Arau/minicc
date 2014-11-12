@@ -1,13 +1,14 @@
 CXX=clang++
 
 OBJECTS=main.o test.o input.o parser.o ast.o token.o value.o \
-   prettypr.o astpr.o interpreter.o stepper.o walker.o translator.o
+   prettypr.o astpr.o interpreter.o stepper.o walker.o translator.o \
+   type_checker.o
 
 CXXFLAGS=-std=c++11
 
 all: minicc
 
-debug: CXXFLAGS += -g3 -O0
+debug: CXXFLAGS += -g3 -O0 -D_GLIBCXX_DEBUG -g
 debug: minicc
 
 release: CXXFLAGS += -O3
@@ -21,6 +22,7 @@ ast.o:         ast.hh input.hh token.hh
 input.o:       ast.hh input.hh token.hh
 parser.o:      ast.hh input.hh token.hh parser.hh translator.hh
 astpr.o:       ast.hh astpr.hh
+type_checker.o:ast.hh type_checker.hh
 prettypr.o:    ast.hh prettypr.hh
 interpreter.o: ast.hh value.hh interpreter.hh translator.hh
 stepper.o:     ast.hh value.hh interpreter.hh stepper.hh

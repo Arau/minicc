@@ -6,6 +6,7 @@ using namespace std;
 #include "parser.hh"
 #include "astpr.hh"
 #include "prettypr.hh"
+#include "type_checker.hh"
 #include "interpreter.hh"
 #include "translator.hh"
 #include "stepper.hh"
@@ -58,7 +59,7 @@ string visible_spaces(string output, string compare = "") {
    return res;
 }
 
-enum VisitorType { pretty_printer, ast_printer, interpreter, stepper };
+enum VisitorType { pretty_printer, type_checker, ast_printer, interpreter, stepper };
 
 void exec_visitor(Program *P, VisitorType vtype) {
 }
@@ -66,7 +67,6 @@ void exec_visitor(Program *P, VisitorType vtype) {
 void test_visitor(string filename, VisitorType vtype) {
    ifstream F(filename);
    string line, code, in, out, err;
-
    string *acum = &code;
    while (getline(F, line)) {
       string label = test_separator(line);
@@ -88,7 +88,7 @@ void test_visitor(string filename, VisitorType vtype) {
          acum = &err;
       }
    }
-   
+
    ostringstream Sout, Saux, Serr;
    istringstream Scode(code), Sin(in);
    Parser P(&Scode, &Serr);
@@ -98,6 +98,7 @@ void test_visitor(string filename, VisitorType vtype) {
    AstVisitor *v;
    switch (vtype) {
    case pretty_printer: v = new PrettyPrinter(&Sout); break;
+   case type_checker:   v = new TypeChecker(&Sout); break;
    case ast_printer:    v = new AstPrinter(&Sout); break;
    case interpreter:    v = new Interpreter(&Sin, &Sout); break;
    default: break;
@@ -129,7 +130,7 @@ void test_visitor(string filename, VisitorType vtype) {
             Serr << e->msg << endl;
          }
       }
-   } 
+   }
    catch (EvalError* e) {
       Serr << "Error de ejecución: " << e->msg << endl;
    }
@@ -161,10 +162,14 @@ void test(string kind, string filename) {
       vtype = ast_printer;
    } else if (kind == "print") {
       vtype = pretty_printer;
+   } else if (kind == "semantic_analyzer") {
+      vtype = type_checker;
    } else if (kind == "interpreter") {
       vtype = interpreter;
    } else if (kind == "stepper") {
       vtype = stepper;
+   } else {
+       cerr << "El kind seleccionado no existe " << kind << endl;
    }
    test_visitor(filename, vtype);
 }

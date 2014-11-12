@@ -7,6 +7,7 @@ using namespace std;
 #include "test.hh"
 #include "astpr.hh"
 #include "prettypr.hh"
+#include "type_checker.hh"
 #include "stepper.hh"
 #include "interpreter.hh"
 #include "translator.hh"
@@ -39,6 +40,11 @@ int main(int argc, char *argv[]) {
             filename = argv[2];
          }
          todo = "step";
+      } else if (argv1 == "--semantic") {
+        if (argc >= 3) {
+            filename = argv[2];
+        }
+        todo = "semantic";
       } else {
          filename = argv[1];
       }
@@ -66,6 +72,8 @@ int main(int argc, char *argv[]) {
             v = new AstPrinter(&cout);
          } else if (todo == "prettyprint") {
             v = new PrettyPrinter(&cout);
+         } else if (todo == "semantic") {
+            v = new TypeChecker(&cout);
          } else {
             v = new Interpreter(&cin, &cout);
          }
@@ -88,7 +96,7 @@ int main(int argc, char *argv[]) {
             }
          }
       }
-   } 
+   }
    catch (EvalError* e) {
       cerr << _T("Execution Error") << ": " << e->msg << endl;
       return 1;
