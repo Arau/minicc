@@ -49,12 +49,11 @@ void Stepper::visit_fieldexpr(FieldExpr *x)   { x->accept(&I); }
 
 void Stepper::visit_program(Program *x) {
    I.visit_program_prepare(x);
-   FuncDecl *main = I.visit_program_find_main();
-   if (main == 0) {
-      _error(_T("The 'main' function does not exist."));
-   }
+   I.visit_program_find_main();
    status(_T("The program begins."));
-   I.invoke_func_prepare(main, vector<Value*>());
+   I.pushenv("main");
+   FuncDecl *main = dynamic_cast<UserFunc*>(I._curr.as<Function>().ptr)->decl;
+   I.invoke_func_prepare(main, vector<Value>());
    I._env.back().active = true;
    push(new ProgramVisitState(main));
 }
@@ -111,12 +110,12 @@ Todo Stepper::BlockVisitState::step(Stepper *S) {
 
 void Stepper::visit_ifstmt(IfStmt *x) {
    x->cond->accept(&I);
-   Value *c = I._curr;
-   if (c->kind != Value::Bool) {
+   Value cond = I._curr;
+   if (!cond.is<Bool>()) {
       _error(_T("The condition in a '%s' has to be a value of type 'bool'.", "if"));
    }
    Stmt *next;
-   if (c->val.as_bool) {
+   if (cond.as<Bool>()) {
       status(_T("The condition is 'true', we take the first branch."));
       next = x->then;
    } else {
@@ -163,11 +162,11 @@ Todo Stepper::ForVisitState::step(Stepper *S) {
    }
    case Stepper::ForVisitState::Cond: {
       S->visit(x->cond);
-      Value *cond = S->I._curr;
-      if (cond->kind != Value::Bool) {
+      Value cond = S->I._curr;
+      if (!cond.is<Bool>()) {
          S->_error(_T("The condition in a '%s' must be a value of type 'bool'.", "for"));
       }
-      if (!cond->val.as_bool) {
+      if (!cond.as<Bool>()) {
          S->status(_T("The condition is 'false', we exit the %s.", "for"));
          at = Stepper::ForVisitState::Leave;
       } else {
@@ -198,11 +197,11 @@ Todo Stepper::WhileVisitState::step(Stepper *S) {
    }
    case Stepper::WhileVisitState::Cond: {
       S->visit(x->cond);
-      Value *cond = S->I._curr;
-      if (cond->kind != Value::Bool) {
+      Value cond = S->I._curr;
+      if (!cond.is<Bool>()) {
          S->_error(_T("The condition in a '%s' must be a value of type 'bool'.", "while"));
       }
-      if (!cond->val.as_bool) {
+      if (!cond.as<Bool>()) {
          S->status(_T("The condition is 'false', we exit the %s.", "while"));
          at = Stepper::WhileVisitState::Leave;
       } else {
@@ -235,7 +234,7 @@ void Stepper::visit_exprstmt(ExprStmt *x) {
       I.visit(x->expr);
       if (x->is_return) {
          ostringstream oss;
-         oss << *I._curr;
+         oss << I._curr;
          status(_T("%s is returned.", oss.str().c_str()));
       } else {
          status(x->expr->describe());
@@ -250,7 +249,8 @@ Range Stepper::WriteExprVisitState::span() const {
 
 Todo Stepper::WriteExprVisitState::step_waiting(Stepper* S) {
    S->status(_T("Some output is written."));
-   S->_out << *S->I._curr;
+   Value curr = Reference::deref(S->I._curr);
+   S->_out << curr;
    exprs.pop_front();
    waiting = false;
    return Stop;
@@ -281,18 +281,15 @@ Todo Stepper::WriteExprVisitState::step(Stepper* S) {
 void Stepper::visit_assignment(BinaryExpr *e) {
    assert(e != 0);
    I.visit(e->right);
-   Value *right = I._curr;
-   if (right->kind == Value::Ref) {
-      right = right->ref();
-   }
+   Value right = Reference::deref(I._curr);
    ostringstream oss;
-   oss << *right;
+   oss << right;
    status(_T("La expresión ha dado %s.", oss.str().c_str()));
    push(new AssignmentVisitState(e, right));
 }
 
 Range Stepper::AssignmentVisitState::span() const {
-   if (left == 0) {
+   if (left.is_null()) {
       return x->right->span();
    } else {
       return Range(x->left->span().ini, x->right->span().ini);
@@ -300,7 +297,7 @@ Range Stepper::AssignmentVisitState::span() const {
 }
 
 Todo Stepper::AssignmentVisitState::step(Stepper *S) {
-   if (left != 0) {
+   if (!left.is_null()) {
       S->pop();
       delete this;
       return Next;
@@ -317,9 +314,13 @@ Todo Stepper::AssignmentVisitState::step(Stepper *S) {
 }
 
 void Stepper::visit_callexpr(CallExpr *x) {
-   FuncDecl *fn = I.visit_callexpr_getfunc(x);
+   I.visit_callexpr_getfunc(x);
+   const FuncValue& fval = I._curr.as<Function>();
+   FuncDecl *fn = dynamic_cast<const UserFunc*>(fval.ptr)->decl;
+   assert(fn != 0);
    CallExprVisitState *s = new CallExprVisitState(x, fn);
-   vector<Value*> args(fn->params.size(), 0);
+   vector<Value> args(fn->params.size(), Value::null);
+   I.pushenv(fn->funcname());
    I.invoke_func_prepare(fn, args);
    s->step(this);
    push(s);
@@ -360,21 +361,37 @@ Todo Stepper::CallExprVisitState::step(Stepper *S) {
          S->status(_T("We evaluate parameter number %d.", curr));
       }
       S->I.visit(x->args[curr]);
-      Value *v = S->I._curr;
-      if (!fn->params[curr]->type->reference && v->kind == Value::Ref) {
-         v = v->ref();
+      Value v = S->I._curr;
+      if (!fn->params[curr]->typespec->reference) {
+         v = Reference::deref(v);
       }
       S->I.setenv(fn->params[curr]->name, v);
       ++curr;
       return Stop;
    } else {
-      S->status(_T("We jump to function '%s'.", fn->id->str().c_str()));
+      S->status(_T("We jump to function '%s'.", fn->funcname().c_str()));
       S->I.actenv();
       curr = Block;
       return Stop;
    }
 }
 
+string json_encode(string s) {
+   ostringstream json;
+   for (int i = 0; i < s.size(); i++) {
+      if (uint8_t(s[i]) < 0x7F) {
+         json << s[i];
+      } else if ((uint8_t(s[i]) & 0x000000E0) == 0x000000C0) {
+         // Gran cutrada...
+         json << "\\u" << hex << setfill('0') << setw(4) 
+              << ((uint8_t(s[i] & 0x1F) << 6) + uint8_t(s[i+1] & 0x3F));
+         i++;
+      } else {
+         assert(false);
+      }
+   }
+   return json.str();
+}
 
 string Stepper::state2json() const {
    ostringstream json;

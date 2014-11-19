@@ -78,7 +78,7 @@ void TypeChecker::visit_enumdecl(EnumDecl *x) {
 
 void TypeChecker::visit_typedefdecl(TypedefDecl *x) {
    //out() << "TypedefDecl(\"" << x->decl->name << "\" = ";
-   x->decl->type->accept(this);
+   x->decl->typespec->accept(this);
    //out() << ")";
 }
 
@@ -100,14 +100,14 @@ void TypeChecker::visit_funcdecl(FuncDecl *x) {
    //out() << "FuncDecl(";
    x->id->accept(this);
    //out() << ", ";
-   x->return_type->accept(this);
+   x->return_typespec->accept(this);
    //out() << ", Params = {";
    for (int i = 0; i < x->params.size(); i++) {
       if (i > 0) {
          //out() << ", ";
       }
       //out() << "\"" << x->params[i]->name << "\": ";
-      x->params[i]->type->accept(this);
+      x->params[i]->typespec->accept(this);
    }
    if (x->block) {
       //out() << "}, {" << endl;
@@ -271,7 +271,7 @@ void TypeChecker::visit_objdecl(ObjDecl *x) {
 
 void TypeChecker::visit_declstmt(DeclStmt* x) {
    //out() << "DeclStmt(";
-   x->type->accept(this);
+   x->typespec->accept(this);
    //out() << ", Vars = {";
    bool first = true;
    for (DeclStmt::Item item : x->items) {

@@ -169,9 +169,9 @@ struct IterStmt : public Stmt { // while + for
 
 struct Decl : public AstNode {
    enum Kind { Normal, Pointer };
-   TypeSpec *type;
+   TypeSpec *typespec;
    std::string name;
-   Decl() : type(0) {}
+   Decl() : typespec(0) {}
 };
 
 struct VarDecl : public Decl {
@@ -194,7 +194,7 @@ struct ObjDecl : public Decl {
 };
 
 struct DeclStmt : public Stmt {
-   TypeSpec *type;
+   TypeSpec *typespec;
    struct Item {
       Decl *decl;
       Expr *init;
@@ -284,14 +284,14 @@ struct Literal : public Expr {
 };
 
 struct Ident : public Expr {
-   std::string id;
+   std::string name;
    std::vector<TypeSpec*> subtypes; // for templates
    std::vector<Ident*> prefix;  // for classes & namespaces;
 
-   Ident(std::string _id = "") : id(_id) {}
+   Ident(std::string _name = "") : name(_name) {}
    void accept(AstVisitor *v);
    bool has_errors() const;
-   std::string str() const;
+   std::string typestr() const;
 
    void shift(std::string new_id);
 };
@@ -402,26 +402,28 @@ struct TypeSpec : public AstNode {
    TypeSpec() : id(0), reference(false) {}
    void accept(AstVisitor *v);
    bool has_errors() const;
-   std::string str() const;
+   std::string typestr() const;
 
-   bool is_vector() const { return id->id == "vector"; }
+   bool is_template() const { return !id->subtypes.empty(); }
 };
 
 // Declarations ////////////////////////////////////////////
 
 struct FuncDecl : public AstNode {
    struct Param {
-      TypeSpec *type;
+      TypeSpec *typespec;
       std::string name;
-      Param() : type(0) {}
+      Param() : typespec(0) {}
    };
 
-   TypeSpec *return_type;
+   TypeSpec *return_typespec;
    Ident *id;
    std::vector<Param*> params;
    Block* block;
 
    FuncDecl(Ident *_id) : id(_id) {}
+
+   std::string funcname() const;
    void accept(AstVisitor *v);
    bool has_errors() const;
 };
@@ -433,6 +435,7 @@ struct StructDecl : public AstNode {
    StructDecl() : id(0) {}
    void accept(AstVisitor *v);
    bool has_errors() const;
+   std::string struct_name() const { return id->name; }
    std::string type_str() const;
    int num_fields() const;
 };

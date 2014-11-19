@@ -56,7 +56,7 @@ AstNode* Parser::parse() {
       }
       case Token::Struct: {
          StructDecl *decl = parse_struct();
-         _types.insert(decl->id->id);
+         _types.insert(decl->id->name);
          prog->add(decl);
          break;
       }
@@ -176,7 +176,7 @@ Ident *Parser::parse_ident(Token tok, Pos ini) {
    Pos fin = _in.pos();
    while (true) {
       tok = _in.peek_token();
-      if (_is_type(id->id) and tok.kind == Token::LT) { // template_id
+      if (_is_type(id->name) and tok.kind == Token::LT) { // template_id
          _skip(id);
          _in.consume("<");
          _skip(id);
@@ -240,7 +240,7 @@ bool Parser::_parse_type_process_token(TypeSpec *type, Token tok, Pos p) {
    return false;
 }
 
-TypeSpec *Parser::parse_type() {
+TypeSpec *Parser::parse_typespec() {
    TypeSpec *type = new TypeSpec();
    Pos p = _in.pos();
    _in.save();
@@ -260,7 +260,7 @@ AstNode *Parser::parse_func_or_var() {
    CommentSeq *c[2] = { 0, 0 };
    Pos ini = _in.pos();
    _in.save();
-   TypeSpec *type = parse_type();
+   TypeSpec *typespec = parse_typespec();
    c[0] = _in.skip("\n\t ");
    Pos id_ini = _in.pos();
    Token tok = _in.read_id();
@@ -270,12 +270,12 @@ AstNode *Parser::parse_func_or_var() {
       _in.discard();
       FuncDecl *fn = new FuncDecl(id);
       fn->comments.assign(c, c+2);
-      fn->return_type = type;
+      fn->return_typespec = typespec;
       fn->ini = ini;
       parse_function(fn);
       return fn;
    } else {
-      delete type;
+      delete typespec;
       _in.restore();
       return parse_declstmt();
    }
@@ -293,7 +293,7 @@ void Parser::parse_function(FuncDecl *fn) {
          break;
       }
       FuncDecl::Param *p = new FuncDecl::Param();
-      p->type = parse_type();
+      p->typespec = parse_typespec();
       _skip(fn);
       Token tok = _in.read_id();
       p->name = tok.str;
@@ -808,12 +808,12 @@ void Parser::parse_expr_seq(AstNode *n, vector<Expr*>& exprs) {
 }
 
 void Parser::parse_type_seq(AstNode *n, vector<TypeSpec*>& v) {
-   v.push_back(parse_type());
+   v.push_back(parse_typespec());
    _skip(n);
    while (_in.curr() == ',') {
       _in.next();
       _skip(n);
-      v.push_back(parse_type());
+      v.push_back(parse_typespec());
    }
 }
 
@@ -879,9 +879,9 @@ Decl *Parser::_parse_objdecl(string name, CommentSeq *comm) {
 DeclStmt *Parser::parse_declstmt(bool is_typedef) {
    DeclStmt *stmt = new DeclStmt();
    stmt->ini = _in.pos();
-   TypeSpec *type = parse_type();
+   TypeSpec *typespec = parse_typespec();
    _skip(stmt); // before identifier
-   stmt->type = type;
+   stmt->typespec = typespec;
    while (true) {
       Token id = _in.next_token();
       string name = id.str;
@@ -911,7 +911,7 @@ DeclStmt *Parser::parse_declstmt(bool is_typedef) {
                       ? parse_exprlist() 
                       : parse_expr(Expr::Assignment));
       }
-      item.decl->type = stmt->type;
+      item.decl->typespec = stmt->typespec;
       stmt->items.push_back(item);
       if (_in.curr() != ',' or is_typedef) {
          break;
