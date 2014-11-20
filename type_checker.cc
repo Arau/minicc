@@ -304,7 +304,7 @@ void TypeChecker::visit_ifstmt(IfStmt *x) {
    x->cond->accept(this);
    if (not is_boolean_expr( x->cond )) {
         string pos = get_pos(x->cond);
-        string msg = pos + "int expression in if condition";
+        string msg = pos + _curr + " expression in if condition";
         Error *err = new Error(x->ini, msg);
         x->errors.push_back(err);
    }
