@@ -10,11 +10,13 @@ string TypeChecker::get_pos(AstNode *x) {
         int line, col;
         line = x->ini_line();
         col  = x->ini_col();
-        string res = to_string(line) + "," + to_string(col) + ": ";
+        string res = to_string(line) + "," + to_string(col+1) + ": ";
         return res;
 }
 
-bool TypeChecker::is_boolean_expr(AstNode *x) {}
+bool TypeChecker::is_boolean_expr(AstNode *x) {
+   return _curr == "bool";
+}
 
 void TypeChecker::visit_program(Program* x) {
    //out() << "Program{" << endl;
@@ -169,26 +171,28 @@ void TypeChecker::visit_literal(Literal *x) {
    }
    switch (x->type) {
    case Literal::Int:
+      _curr = "int";
       //out() << "Int<" << x->val.as_int << ">";
       break;
 
    case Literal::Double:
-      //out() << "Double<" << x->val.as_double << ">";
+      _curr = "double";
       break;
 
    case Literal::Bool:
-      //out() << "Bool<" << (x->val.as_bool ? "true" : "false") << ">";
+      _curr = "bool";
       break;
 
    case Literal::String:
-      //out() << "String<" << Literal::escape(*(x->val.as_string.s), '"') << ">";
+      _curr = "string";
       break;
 
    case Literal::Char:
-      //out() << "Char<" << Literal::escape(*(x->val.as_string.s), '\'') << ">";
+      _curr = "char";
       break;
 
    default:
+      cerr << "unexpected literal" << endl;
       //out() << "Literal<>";
       break;
    }
@@ -300,7 +304,9 @@ void TypeChecker::visit_ifstmt(IfStmt *x) {
    x->cond->accept(this);
    if (not is_boolean_expr( x->cond )) {
         string pos = get_pos(x->cond);
-        cerr << pos << "int expression in if condition" << endl;
+        string msg = pos + "int expression in if condition";
+        Error *err = new Error(x->ini, msg);
+        x->errors.push_back(err);
    }
    if (x->els) {
       x->els->accept(this);

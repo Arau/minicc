@@ -53,6 +53,7 @@ public:
 private:
    std::string get_pos(AstNode*);
    bool is_boolean_expr(AstNode*);
+   std::string _curr;
 };
 
 #endif
