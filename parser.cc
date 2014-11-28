@@ -292,7 +292,7 @@ void Parser::parse_function(FuncDecl *fn) {
       if (_in.curr() == ')') {
          break;
       }
-      Param *p = new Param();
+      ParamDecl *p = new ParamDecl();
       p->typespec = parse_typespec();
       _skip(fn);
       Token tok = _in.read_id();

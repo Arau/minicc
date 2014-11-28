@@ -44,6 +44,9 @@ void Walker::visit_structdecl(StructDecl *x) {
 void Walker::visit_funcdecl(FuncDecl *x) {
    walk(x);
    x->return_typespec->accept(this);
+   for (int i = 0; i < (int)x->params.size(); i++) {
+      x->params[i]->accept(this);
+   }
    if (x->block) {
       x->block->accept(this);
    }
@@ -162,4 +165,9 @@ void Walker::visit_addrexpr(AddrExpr *x) {
 void Walker::visit_derefexpr(DerefExpr *x) {
    walk(x);
    x->expr->accept(this);
+}
+
+void Walker::visit_paramdecl(ParamDecl *x) {
+   walk(x);
+   x->typespec->accept(this);
 }

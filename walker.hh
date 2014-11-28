@@ -43,6 +43,7 @@ public:
    void visit_negexpr(NegExpr *x);
    void visit_addrexpr(AddrExpr *x);
    void visit_derefexpr(DerefExpr *x);
+   void visit_paramdecl(ParamDecl *x);
 
    void visit_errorstmt(Stmt::Error *x);
    void visit_errorexpr(Expr::Error *x);

@@ -242,13 +242,13 @@ bool TypeSpec::has_errors() const {
    return AstNode::has_errors();
 }
 
-bool Param::has_errors() const {
+bool ParamDecl::has_errors() const {
     return AstNode::has_errors();
 }
 
 bool FuncDecl::has_errors() const {
    _ERRORS(return_typespec); _ERRORS(block);
-   for (Param* p : params) {
+   for (ParamDecl* p : params) {
       _ERRORS(p->typespec);
    }
    return AstNode::has_errors();
