@@ -9,10 +9,10 @@ using namespace std;
 // OJO: El orden de la tabla es importante!
 // Hay que dejarla antes que el initializer y el map...
 //
-struct { 
-   string      op; 
-   Token::Kind tokkind; 
-   Expr::Kind  kind; 
+struct {
+   string      op;
+   Token::Kind tokkind;
+   Expr::Kind  kind;
 } pairs[] = {
    { "",    Token::Empty,        Expr::Unknown },
    { ",",   Token::Comma,        Expr::Comma },
@@ -49,7 +49,7 @@ struct {
    { ">",   Token::GT,           Expr::Relational },
    { ">=",  Token::GE,           Expr::Relational },
    { "<=",  Token::LE,           Expr::Relational },
-      
+
    { "<<",  Token::LShift,       Expr::Shift },
    { ">>",  Token::RShift,       Expr::Shift },
 
@@ -66,8 +66,8 @@ struct {
    { "END", Token::Unknown,      Expr::Unknown }
 };
 
-const string TypeSpec::QualifiersNames[] = { 
-   "const",    "volatile", "mutable", 
+const string TypeSpec::QualifiersNames[] = {
+   "const",    "volatile", "mutable",
    "register", "auto",     "extern"
 };
 
@@ -98,7 +98,7 @@ bool Expr::right_associative(Expr::Kind t) {
    return t == Expr::Assignment;
 }
 
-std::ostream& ReadWriter::out(OutType typ) { 
+std::ostream& ReadWriter::out(OutType typ) {
    ostream *o = _out;
    if (!_stack.empty()) {
       o = _stack.back();
@@ -106,7 +106,7 @@ std::ostream& ReadWriter::out(OutType typ) {
    if (typ == beginl and _indent > 0) {
       *o << indentation();
    }
-   return *o; 
+   return *o;
 }
 
 
@@ -115,8 +115,8 @@ void BinaryExpr::set(Expr::Kind k) {
 }
 
 JumpStmt::Kind JumpStmt::keyword2type(string s) {
-   if (s == "break") { 
-      return JumpStmt::Break; 
+   if (s == "break") {
+      return JumpStmt::Break;
    } else if (s == "continue") {
       return JumpStmt::Continue;
    } else if (s == "goto") {
@@ -177,7 +177,7 @@ bool DeclStmt::has_errors() const {
    for (Item i : items) {
       _ERRORS(i.decl);
       _ERRORS(i.init);
-   } 
+   }
    return AstNode::has_errors();
 }
 
@@ -242,6 +242,10 @@ bool TypeSpec::has_errors() const {
    return AstNode::has_errors();
 }
 
+bool Param::has_errors() const {
+    return AstNode::has_errors();
+}
+
 bool FuncDecl::has_errors() const {
    _ERRORS(return_typespec); _ERRORS(block);
    for (Param* p : params) {
@@ -286,7 +290,7 @@ string Ident::typestr() const {
 string TypeSpec::typestr() const {
    string _id;
    int i = 0, numquals = 0;
-   static const string names[] = { 
+   static const string names[] = {
       "const", "volatile", "mutable", "register", "auto", "extern"
    };
    while (TypeSpec::Qualifiers(1 << i) <= TypeSpec::Extern) {
@@ -307,8 +311,8 @@ string TypeSpec::typestr() const {
    return _id;
 }
 
-string ArrayDecl::type_str() const { 
-   return typespec->typestr() + "[]"; 
+string ArrayDecl::type_str() const {
+   return typespec->typestr() + "[]";
 }
 
 string StructDecl::type_str() const {
@@ -334,16 +338,16 @@ int StructDecl::num_fields() const {
 
 bool BinaryExpr::is_read_expr() const {
    Ident *id = dynamic_cast<Ident*>(left);
-   return 
+   return
       (left->is_read_expr() and op == ">>") or
-      (id != 0 and id->name == "cin");   
+      (id != 0 and id->name == "cin");
 }
 
 bool BinaryExpr::is_write_expr() const {
    Ident *id = dynamic_cast<Ident*>(left);
-   return 
+   return
       (left->is_write_expr() and op == "<<") or
-      (id != 0 and id->name == "cout");   
+      (id != 0 and id->name == "cout");
 }
 
 bool BinaryExpr::is_assignment() const {
@@ -401,7 +405,7 @@ void Ident::shift(string new_id) {
    pre->subtypes.swap(subtypes);
    pre->comments.swap(comments);
    pre->errors.swap(errors);
-   // the last two comments are the ones surrounding the "::", 
+   // the last two comments are the ones surrounding the "::",
    // copy them over to new_id
    const int commsz = pre->comments.size();
    comments.push_back(pre->comments[commsz-2]);
