@@ -84,6 +84,11 @@ void AstPrinter::visit_structdecl(StructDecl *x) {
    out(beginl) << "})";
 }
 
+void AstPrinter::visit_paramdecl(ParamDecl *x) {
+   out() << "\"" << x->name << "\": ";
+   x->typespec->accept(this);
+}
+
 void AstPrinter::visit_funcdecl(FuncDecl *x) {
    out() << "FuncDecl(";
    x->id->accept(this);
@@ -94,8 +99,7 @@ void AstPrinter::visit_funcdecl(FuncDecl *x) {
       if (i > 0) {
          out() << ", ";
       }
-      out() << "\"" << x->params[i]->name << "\": ";
-      x->params[i]->typespec->accept(this);
+      x->params[i]->accept(this);
    }
    if (x->block) {
       out() << "}, {" << endl;
@@ -114,7 +118,7 @@ void AstPrinter::visit_block(Block *x) {
    if (x->stmts.empty()) {
       out() << "{})";
       return;
-   } 
+   }
    out() << "{" << endl;
    indent(+1);
    for (Stmt *s : x->stmts) {
@@ -152,35 +156,35 @@ void AstPrinter::visit_ident(Ident *x) {
 }
 
 void AstPrinter::visit_literal(Literal *x) {
-   if (x->paren) { 
-      out() << "("; 
+   if (x->paren) {
+      out() << "(";
    }
    switch (x->type) {
-   case Literal::Int:    
-      out() << "Int<" << x->val.as_int << ">"; 
+   case Literal::Int:
+      out() << "Int<" << x->val.as_int << ">";
       break;
 
-   case Literal::Double:    
-      out() << "Double<" << x->val.as_double << ">"; 
+   case Literal::Double:
+      out() << "Double<" << x->val.as_double << ">";
       break;
 
-   case Literal::Bool:  
-      out() << "Bool<" << (x->val.as_bool ? "true" : "false") << ">"; 
+   case Literal::Bool:
+      out() << "Bool<" << (x->val.as_bool ? "true" : "false") << ">";
       break;
 
-   case Literal::String: 
-      out() << "String<" << Literal::escape(*(x->val.as_string.s), '"') << ">"; 
+   case Literal::String:
+      out() << "String<" << Literal::escape(*(x->val.as_string.s), '"') << ">";
       break;
 
    case Literal::Char:
-      out() << "Char<" << Literal::escape(*(x->val.as_string.s), '\'') << ">"; 
+      out() << "Char<" << Literal::escape(*(x->val.as_string.s), '\'') << ">";
       break;
 
    default:
       out() << "Literal<>"; break;
    }
-   if (x->paren) { 
-      out() << ")"; 
+   if (x->paren) {
+      out() << ")";
    }
 }
 
@@ -279,7 +283,7 @@ void AstPrinter::visit_exprstmt(ExprStmt* x) {
    out() << "ExprStmt" << (x->is_return ? "<return>" : "") << "(";
    if (x->expr) {
       x->expr->accept(this);
-   } 
+   }
    out() << ")";
 }
 
@@ -360,8 +364,8 @@ void AstPrinter::visit_fieldexpr(FieldExpr *x) {
 }
 
 void AstPrinter::visit_condexpr(CondExpr *x) {
-   if (x->paren) { 
-      out() << "("; 
+   if (x->paren) {
+      out() << "(";
    }
    out() << "CondExpr(";
    x->cond->accept(this);
@@ -370,8 +374,8 @@ void AstPrinter::visit_condexpr(CondExpr *x) {
    out() << ", ";
    x->els->accept(this);
    out() << ")";
-   if (x->paren) { 
-      out() << ")"; 
+   if (x->paren) {
+      out() << ")";
    }
 }
 

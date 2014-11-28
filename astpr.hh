@@ -6,9 +6,9 @@
 #include "ast.hh"
 
 class AstPrinter : public AstVisitor, public ReadWriter {
-   
+
 public:
-   AstPrinter(std::ostream *o = &std::cout) 
+   AstPrinter(std::ostream *o = &std::cout)
       : ReadWriter(o) {}
 
    void print(AstNode* x) { x->accept(this); }
@@ -20,6 +20,7 @@ public:
    void visit_using(Using *x);
    void visit_typespec(TypeSpec *x);
    void visit_funcdecl(FuncDecl *x);
+   void visit_paramdecl(ParamDecl *x);
    void visit_structdecl(StructDecl *x);
    void visit_typedefdecl(TypedefDecl *x);
    void visit_enumdecl(EnumDecl *x);
