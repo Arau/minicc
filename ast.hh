@@ -409,13 +409,14 @@ struct TypeSpec : public AstNode {
 
 // Declarations ////////////////////////////////////////////
 
-struct FuncDecl : public AstNode {
-   struct Param {
-      TypeSpec *typespec;
-      std::string name;
-      Param() : typespec(0) {}
-   };
 
+struct Param : public AstNode {
+  TypeSpec *typespec;
+  std::string name;
+  Param() : typespec(0) {}
+};
+
+struct FuncDecl : public AstNode {
    TypeSpec *return_typespec;
    Ident *id;
    std::vector<Param*> params;
