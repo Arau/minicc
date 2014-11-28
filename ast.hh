@@ -414,6 +414,9 @@ struct Param : public AstNode {
   TypeSpec *typespec;
   std::string name;
   Param() : typespec(0) {}
+
+  void accept(AstVisitor *v);
+  bool has_errors() const;
 };
 
 struct FuncDecl : public AstNode {
@@ -539,6 +542,7 @@ public:
    virtual void visit_addrexpr(AddrExpr *)        { assert(false); }
    virtual void visit_derefexpr(DerefExpr *)      { assert(false); }
    virtual void visit_literal(Literal *)          { assert(false); }
+   virtual void visit_param(Param *)              { assert(false); }
 
    virtual void visit_errorstmt(Stmt::Error *)    { assert(false); }
    virtual void visit_errorexpr(Expr::Error *)    { assert(false); }
@@ -576,6 +580,7 @@ inline void NegExpr::accept(AstVisitor *v)       { v->visit_negexpr(this); }
 inline void AddrExpr::accept(AstVisitor *v)      { v->visit_addrexpr(this); }
 inline void DerefExpr::accept(AstVisitor *v)     { v->visit_derefexpr(this); }
 inline void Literal::accept(AstVisitor *v)       { v->visit_literal(this); }
+inline void Param::accept(AstVisitor *v)         { v->visit_param(this); }
 
 inline void Stmt::Error::accept(AstVisitor *v)   { v->visit_errorstmt(this); }
 inline void Expr::Error::accept(AstVisitor *v)   { v->visit_errorexpr(this); }
