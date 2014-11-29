@@ -1,9 +1,45 @@
 #include <algorithm>
 #include <sstream>
+#include <unordered_map>
 #include <string>
 #include "ast.hh"
 #include "type_checker.hh"
 using namespace std;
+
+
+
+string Type::to_string() {
+   if (T == basic) {
+      return basic_name;
+   }
+   if (T == strct) {
+      string s = "struct{";
+      for (int i = 0; i < (int) struct_fields.size(); i++) {
+         if (i != 0) s += ",";
+         s += struct_fields[i].name + "(" + struct_fields[i].type->to_string() + ")";
+      }
+      return s + "}";
+   }
+   if (T == enm) {
+      string s = "enum{";
+      for (int i = 0; i < (int) enum_fields.size(); i++) {
+         if (i != 0) s += ",";
+         s += enum_fields[i].name + "(" + std::to_string(enum_fields[i].value) + ")";
+      }
+      return s + "}";
+   }
+   if (T == vec) {
+      return "vector<" + content->to_string() + ">";
+   }
+   if (T == alias) {
+      //return "alias(" + alias_name + ":" + to_string(real) + ")";
+      return real->to_string();
+   }
+   if (T == pointer) {
+      return "*(" + pointed->to_string() + ")";
+   }
+   return "cannot reach here";
+}
 
 
 string TypeChecker::get_pos(AstNode *x) {
@@ -19,49 +55,41 @@ bool TypeChecker::is_boolean_expr(AstNode *x) {
 }
 
 void TypeChecker::visit_program(Program* x) {
-   //out() << "Program{" << endl;
-   indent(+1);
+   symTable = SymbolTable();
    for (AstNode* n : x->nodes) {
-      //out(beginl);
       n->accept(this);
-      //out() << endl;
    }
-   indent(-1);
-   //out(beginl) << "}" << endl;
 }
 
-void TypeChecker::visit_include(Include* x) {
-   string D = (x->global ? "<>" : "\"\"");
-   //out() << "Include(" << D[0] << x->filename << D[1] << ")";
-}
+void TypeChecker::visit_include(Include* x) {}
 
-void TypeChecker::visit_macro(Macro* x) {
-   //out() << "Macro(" << x->macro << ")" << endl;
-}
+void TypeChecker::visit_macro(Macro* x) {}
 
-void TypeChecker::visit_using(Using* x) {
-   //out() << "Using(" << x->namespc << ")";
-}
+void TypeChecker::visit_using(Using* x) {}
 
 void TypeChecker::visit_typespec(TypeSpec *x) {
-   //out() << "Type" << (x->reference ? "<&>" : "") << "(";
-   x->id->accept(this);
-   if (!x->qual.empty()) {
-      //out() << ", {";
-      int i = 0, numq = 0;
-      for (int q = TypeSpec::Const; q <= TypeSpec::Extern; q++) {
-         if (find(x->qual.begin(), x->qual.end(), q) != x->qual.end()) {
-            if (numq > 0) {
-               //out() << ", ";
-            }
-            //out() << TypeSpec::QualifiersNames[i];
-            numq++;
-         }
-         i++;
-      }
-      //out() << "}";
-   }
-   //out() << ")";
+   typespec_type = new Type;
+   typespec_type.T = basic;
+   typespec_type.basic_name = x->id->name; //only works correctly for basic types for now
+
+   // //out() << "Type" << (x->reference ? "<&>" : "") << "(";
+   // //x->id->accept(this);
+   // if (!x->qual.empty()) {
+   //    //out() << ", {";
+   //    int i = 0, numq = 0;
+   //    for (int q = TypeSpec::Const; q <= TypeSpec::Extern; q++) {
+   //       if (find(x->qual.begin(), x->qual.end(), q) != x->qual.end()) {
+   //          if (numq > 0) {
+   //             //out() << ", ";
+   //          }
+   //          //out() << TypeSpec::QualifiersNames[i];
+   //          numq++;
+   //       }
+   //       i++;
+   //    }
+   //    //out() << "}";
+   // }
+   // //out() << ")";
 }
 
 void TypeChecker::visit_enumdecl(EnumDecl *x) {
@@ -98,7 +126,12 @@ void TypeChecker::visit_structdecl(StructDecl *x) {
    //out(beginl) << "})";
 }
 
+void TypeChecker::visit_paramdecl(ParamDecl *x) {
+
+}
+
 void TypeChecker::visit_funcdecl(FuncDecl *x) {
+   symTable.initCurrFuncScope(x);
    //out() << "FuncDecl(";
    x->id->accept(this);
    //out() << ", ";
@@ -109,7 +142,7 @@ void TypeChecker::visit_funcdecl(FuncDecl *x) {
          //out() << ", ";
       }
       //out() << "\"" << x->params[i]->name << "\": ";
-      x->params[i]->typespec->accept(this);
+      //x->params[i]->typespec->accept(this);
    }
    if (x->block) {
       //out() << "}, {" << endl;
@@ -141,27 +174,11 @@ void TypeChecker::visit_block(Block *x) {
 }
 
 void TypeChecker::visit_ident(Ident *x) {
-   //out() << "id:";
-   if (!x->prefix.empty()) {
-      //out() << '[';
-      for (int i = 0; i < x->prefix.size(); i++) {
-         if (i > 0) {
-            //out() << ", ";
-         }
-         x->prefix[i]->accept(this);
-      }
-      //out() << ']';
-   }
-   //out() << "'" << x->id << "'";
-   if (!x->subtypes.empty()) {
-      //out() << "<";
-      for (int i = 0; i < x->subtypes.size(); i++) {
-         if (i > 0) {
-            //out() << ", ";
-         }
-         x->subtypes[i]->accept(this);
-      }
-      //out() << ">";
+   if (not symTable.currentFunction->containsSymbol(x->name)) {
+      string pos = get_pos(x);
+      string msg = pos + "undeclared variable '" + x->name + "'";
+      Error *err = new Error(x->ini, msg);
+      //x->errors.push_back(err);
    }
 }
 
@@ -229,7 +246,6 @@ void TypeChecker::visit_vardecl(VarDecl *x) {
    //out() << '"' << x->name << '"';
    /*
    if (x->init) {
-      //out() << " = ";
       x->init->accept(this);
    }
    */
@@ -274,22 +290,15 @@ void TypeChecker::visit_objdecl(ObjDecl *x) {
 }
 
 void TypeChecker::visit_declstmt(DeclStmt* x) {
-   //out() << "DeclStmt(";
    x->typespec->accept(this);
-   //out() << ", Vars = {";
    bool first = true;
    for (DeclStmt::Item item : x->items) {
-      if (!first) {
-         //out() << ", ";
-      }
       item.decl->accept(this);
       if (item.init) {
-         //out() << " = ";
          item.init->accept(this);
       }
       first = false;
    }
-   //out() << "})";
 }
 
 void TypeChecker::visit_exprstmt(ExprStmt* x) {
@@ -434,4 +443,82 @@ void TypeChecker::visit_errorstmt(Stmt::Error *x) {
 
 void TypeChecker::visit_errorexpr(Expr::Error *x) {
    //out() << "ErrorExpr(\"" << x->code << "\")";
+}
+
+
+
+bool LocalScope::containsSymbol(string name, string& type) {
+   auto it = ident2type.find(name);
+   if (it != ident2type.end()) {
+      type = it->second->type->to_string();
+      return true;
+   }
+   return false;
+}
+
+bool LocalScope::containsSymbol(string name) {
+   auto it = ident2type.find(name);
+   if (it != ident2type.end()) {
+      return true;
+   }
+   return false;
+}
+
+bool LocalScope::addSymbol(string name, string type) {
+   string existingType;
+   bool exists = containsSymbol(name, existingType);
+   if (exists) {
+      return false;
+   }
+   else {
+      ident2type[name] = NULL;
+      return true;
+   }
+}
+
+void FunctionScope::pushLocalScope() {
+   scopeStack.push_back(LocalScope());
+}
+
+void FunctionScope::popLocalScope() {
+   scopeStack.pop_back();
+}
+
+bool FunctionScope::addSymbol(string name, string type) {
+   int topIndex = scopeStack.size()-1;
+   string found_type; //not used
+   if (scopeStack[topIndex].containsSymbol(name, found_type)) {
+      return false;
+   }
+   else {
+      scopeStack[topIndex].addSymbol(name, type);
+      return true;
+   }
+}
+
+bool FunctionScope::containsSymbol(string name, string& type) {
+   for (int i = scopeStack.size()-1; i >= 0; i--) {
+      if (scopeStack[i].containsSymbol(name, type)) {
+         return true;
+      }
+   }
+   return false;
+}
+
+bool FunctionScope::containsSymbol(string name) {
+   for (int i = scopeStack.size()-1; i >= 0; i--) {
+      if (scopeStack[i].containsSymbol(name)) {
+         return true;
+      }
+   }
+   return false;
+}
+
+void SymbolTable::initCurrFuncScope(FuncDecl *x) {
+   currentFunction = new FunctionScope();
+   currentFunction->pushLocalScope();
+   for (int i = 0; i < (int) x->params.size(); i++) {
+      cout << "init func scope: " << x->id->name << endl;
+      currentFunction->addSymbol(x->params[i]->name, x->params[i]->typespec->typestr());
+   }
 }

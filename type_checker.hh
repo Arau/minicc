@@ -4,9 +4,124 @@
 #include <assert.h>
 #include <iostream>
 #include <string>
+#include <unordered_map>
+#include <set>
 #include "ast.hh"
 
+char basic_types[][80] = {"int", "float", "char", "double", "string", "bool", ""};
+enum type_class { basic, strct, enm, vec, alias, pointer };
+
+struct Type;
+
+struct Struct_field {
+   Type* type;
+   std::string name;
+};
+
+struct Enum_field {
+   std::string name;
+   int value;
+};
+
+struct Type {
+   type_class T;
+   //basic types:
+   std::string basic_name;
+   //struct types:
+   std::vector<Struct_field> struct_fields;
+   //enum types:
+   std::vector<Enum_field> enum_fields;
+   //vector types:
+   Type* content;
+   //alias types
+   std::string alias_name;
+   Type* real;
+   //pointer types:
+   Type* pointed;
+
+   std::string to_string();
+   Type(int n) {
+      T = basic;
+   }
+};
+
+struct Value {
+   Type* type;
+   bool initialized;
+   bool reference;
+   bool is_const;
+
+   //basic types:
+   int int_value;
+   bool bool_value;
+   char char_value;
+   std::string string_value;
+   float float_value;
+   double double_value;
+   //struct types
+   std::vector<Value> struct_field_values;
+   //enum types
+   std::string item;
+   //vector types
+   int length;
+   std::vector<Value> elements;
+};
+
+
+struct LocalScope {
+   std::unordered_map<std::string,Value*> ident2type;
+
+   LocalScope() {
+      ident2type = std::unordered_map<std::string,Value*>();
+   }
+
+   bool containsSymbol(std::string name, std::string& type); //version that also returns the type by ref.
+   bool containsSymbol(std::string name);
+
+   //returns whether the symbol was added correctly
+   //(i.e. it did not already exist)
+   bool addSymbol(std::string name, std::string type);
+};
+
+struct FunctionScope {
+   std::vector<LocalScope> scopeStack;
+
+   FunctionScope() {
+      scopeStack = std::vector<LocalScope> ();
+   }
+
+   void pushLocalScope();
+   void popLocalScope();
+   
+   //returns whether the symbol was added correctly
+   //(i.e. it did not already exist)
+   bool addSymbol(std::string name, std::string type);
+
+   bool containsSymbol(std::string name, std::string& type);
+   bool containsSymbol(std::string name);
+};
+
+struct SymbolTable {
+   FunctionScope* currentFunction;
+   
+   //empties the scope stack of currentFunction,
+   //gives it an empty first stack and puts the
+   //function parameters in it
+   void initCurrFuncScope(FuncDecl *x); 
+
+};
+
 class TypeChecker : public AstVisitor, public ReadWriter {
+private:
+   
+   std::string get_pos(AstNode*);
+   bool is_boolean_expr(AstNode*);
+   std::string _curr;
+   
+   SymbolTable symTable;
+
+   Type* typespec_type; //updated by visit_typespec
+
 
 public:
    TypeChecker(std::ostream *o = &std::cout)
@@ -46,14 +161,13 @@ public:
    void visit_negexpr(NegExpr *x);
    void visit_addrexpr(AddrExpr *x);
    void visit_derefexpr(DerefExpr *x);
+   void visit_paramdecl(ParamDecl *x);
 
    void visit_errorstmt(Stmt::Error *x);
    void visit_errorexpr(Expr::Error *x);
 
-private:
-   std::string get_pos(AstNode*);
-   bool is_boolean_expr(AstNode*);
-   std::string _curr;
+
 };
+
 
 #endif

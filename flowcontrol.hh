@@ -24,7 +24,7 @@ which makes posterior instr unreacheable
 
 Detects non-void non-main functions without return
 
-Detects infinite loops (static expression evaluation only detects the 'true' literal for now)
+Detects infinite loops (static expression evaluation does not detect variables with known value)
 
 Detects loops and if/else branches that are never executed
 
@@ -33,6 +33,8 @@ Detects unreacheable instructoins after break or continue
 Detect break/contiune outside loop
 
 To do:
+
+Detect that if there are cins or couts, there is include<iostream>, and namespace std
 
 Detects goto undefined labels //i think its not implemented in the parser
 
