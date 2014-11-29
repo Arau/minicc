@@ -402,6 +402,7 @@ struct TypeSpec : public AstNode {
    TypeSpec() : id(0), reference(false) {}
    void accept(AstVisitor *v);
    bool has_errors() const;
+   bool is_const() const;
    std::string typestr() const;
 
    bool is_template() const { return !id->subtypes.empty(); }

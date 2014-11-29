@@ -11,3 +11,14 @@
 - Pintar flechas con jsPlumb.
 - Pintar matrices en 2D.
 - Pensar más Entrada/Salida.
+
+Analisis semantico:
+- detectar includes incorrectos o no utilizados
+- detectar gotos 
+- detectar lado izquierdo de una asignacion no es modificable (esto ya se hcae en el interprete pero se puede hacer estaticamente) (tambien en cins)
+
+
+
+/////////////////////////////
+
+parece que los labels no se parsean?

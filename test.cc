@@ -8,6 +8,7 @@ using namespace std;
 #include "astpr.hh"
 #include "prettypr.hh"
 #include "type_checker.hh"
+#include "flowcontrol.hh"
 #include "interpreter.hh"
 #include "translator.hh"
 #include "stepper.hh"
@@ -60,7 +61,7 @@ string visible_spaces(string output, string compare = "") {
    return res;
 }
 
-enum VisitorType { pretty_printer, type_checker, ast_printer, interpreter, stepper };
+enum VisitorType { pretty_printer, type_checker, flowcontrol, ast_printer, interpreter, stepper };
 
 void exec_visitor(Program *P, VisitorType vtype) {
 }
@@ -100,6 +101,7 @@ void test_visitor(string filename, VisitorType vtype) {
    switch (vtype) {
    case pretty_printer: v = new PrettyPrinter(&Sout); break;
    case type_checker:   v = new TypeChecker(&Sout); break;
+   case flowcontrol:   v = new FlowControl(&Sout); break;
    case ast_printer:    v = new AstPrinter(&Sout); break;
    case interpreter:    v = new Interpreter(&Sin, &Sout); break;
    default: break;
@@ -165,6 +167,8 @@ void test(string kind, string filename) {
       vtype = pretty_printer;
    } else if (kind == "semantic_analyzer") {
       vtype = type_checker;
+   } else if (kind == "flow_control") {
+      vtype = flowcontrol;
    } else if (kind == "interpreter") {
       vtype = interpreter;
    } else if (kind == "stepper") {

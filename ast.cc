@@ -242,6 +242,12 @@ bool TypeSpec::has_errors() const {
    return AstNode::has_errors();
 }
 
+bool TypeSpec::is_const() const {
+   for (int i = 0; i < (int) qual.size(); i++) {
+      if (qual[i] == Const) return true;
+   }
+   return false;
+}
 bool ParamDecl::has_errors() const {
     return AstNode::has_errors();
 }

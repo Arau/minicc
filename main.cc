@@ -8,6 +8,7 @@ using namespace std;
 #include "astpr.hh"
 #include "prettypr.hh"
 #include "type_checker.hh"
+#include "flowcontrol.hh"
 #include "stepper.hh"
 #include "interpreter.hh"
 #include "translator.hh"
@@ -45,6 +46,11 @@ int main(int argc, char *argv[]) {
             filename = argv[2];
         }
         todo = "semantic";
+      } else if (argv1 == "--flowcontrol") {
+        if (argc >= 3) {
+            filename = argv[2];
+        }
+        todo = "flowcontrol";
       } else {
          filename = argv[1];
       }
@@ -74,6 +80,8 @@ int main(int argc, char *argv[]) {
             v = new PrettyPrinter(&cout);
          } else if (todo == "semantic") {
             v = new TypeChecker(&cout);
+         } else if (todo == "flowcontrol") {
+            v = new FlowControl(&cout);
          } else {
             v = new Interpreter(&cin, &cout);
          }

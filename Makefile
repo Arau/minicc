@@ -2,7 +2,7 @@ CXX=clang++
 
 OBJECTS=main.o test.o input.o parser.o ast.o token.o value.o \
    prettypr.o astpr.o interpreter.o stepper.o walker.o translator.o \
-   types.o type_checker.o
+   types.o type_checker.o flowcontrol.o
 
 SRCS=$(OBJECTS:.o=.cc)
 
