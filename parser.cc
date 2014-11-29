@@ -724,6 +724,7 @@ Expr *Parser::parse_increxpr(Expr *x, Token tok) {
 
 Stmt *Parser::parse_for() {
    IterStmt *stmt = new IterStmt();
+   stmt->ini = _in.pos();
    _in.consume("for");
    _skip(stmt);
    if (!_in.expect("(")) {
@@ -744,11 +745,13 @@ Stmt *Parser::parse_for() {
    }
    _skip(stmt);
    stmt->substmt = parse_stmt();
+   stmt->fin = _in.pos();
    return stmt;
 }
 
 Stmt *Parser::parse_while() {
    IterStmt *stmt = new IterStmt();
+   stmt->ini = _in.pos();
    _in.consume("while");
    _skip(stmt);
    if (!_in.expect("(")) {
@@ -762,11 +765,13 @@ Stmt *Parser::parse_while() {
    }
    _skip(stmt);
    stmt->substmt = parse_stmt();
+   stmt->fin = _in.pos();
    return stmt;
 }
 
 Stmt *Parser::parse_ifstmt() {
    IfStmt *stmt = new IfStmt();
+   stmt->ini = _in.pos();
    _in.consume("if");
    _skip(stmt);
    if (!_in.expect("(")) {
@@ -791,6 +796,7 @@ Stmt *Parser::parse_ifstmt() {
       stmt->comments.pop_back();
       _in.restore();
    }
+   stmt->fin = _in.pos();
    return stmt;
 }
 
