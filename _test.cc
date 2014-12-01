@@ -4,17 +4,28 @@ using namespace std;
 
 typedef int myint;
 
-enum myenum { hol, a , que , tal };
-
-void f() {
-	cout << hol << endl;
+int f(int a) {
+	a++;
+	return 0;
 }
 
+int f(int &b) {
+	b++;
+	return 0;
+}
+
+enum b {a , ba };
 int main() {
-	enum myenum { hol, a , que , tal };
-	cout << "hello " << hol << endl;
-	f();
-	myint m =3;
-	int n = 2;
-	cout << n+m << endl;
+	typedef float myint;
+	myint i = 0.5;
+	cout << i << endl;
+	while (true) {
+		typedef char myint;
+		myint j = 'a';
+		cout << j << endl;
+		break;
+	}
+	int a = 3;
+	int b = f(a);
+	cout << a << endl;
 }

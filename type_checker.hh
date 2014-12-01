@@ -8,21 +8,30 @@
 #include <set>
 #include "ast.hh"
 
+/* Missing support for array and object types
+
+*/
 char basic_types[][80] = {"int", "float", "char", "double", "string", "bool", ""};
-enum type_class { basic, strct, enm, vec, alias, pointer };
 
 struct Type;
-
 struct Struct_field {
    Type* type;
    std::string name;
+   Struct_field() {};
+   Struct_field(Struct_field f);
 };
 
 struct Enum_field {
    std::string name;
    int value;
+   Enum_field() {};
+   Enum_field(Enum_field f) {
+      name = f.name;
+      value = f.value;
+   }
 };
 
+enum type_class { basic, strct, enm, vec, alias, pointer};
 struct Type {
    type_class T;
    //basic types:
@@ -38,18 +47,21 @@ struct Type {
    Type* real;
    //pointer types:
    Type* pointed;
-
+   Type();
+   Type(TypeSpec* x);
+   Type(Type t);
    std::string to_string();
-   Type(int n) {
-      T = basic;
-   }
+   std::string class_str();
 };
 
 struct Value {
-   Type* type;
+   std::string name;
+   Type type;
    bool initialized;
+   bool known_value; //for static evaluation, not used for now
    bool reference;
    bool is_const;
+   bool assignable;
 
    //basic types:
    int int_value;
@@ -63,64 +75,45 @@ struct Value {
    //enum types
    std::string item;
    //vector types
-   int length;
    std::vector<Value> elements;
 };
 
-
-struct LocalScope {
-   std::unordered_map<std::string,Value*> ident2type;
-
-   LocalScope() {
-      ident2type = std::unordered_map<std::string,Value*>();
-   }
-
-   bool containsSymbol(std::string name, std::string& type); //version that also returns the type by ref.
-   bool containsSymbol(std::string name);
-
-   //returns whether the symbol was added correctly
-   //(i.e. it did not already exist)
-   bool addSymbol(std::string name, std::string type);
+struct FuncParam {
+   std::string name;
+   Type* type;
+   bool ref;
+   Value* init;
 };
 
-struct FunctionScope {
-   std::vector<LocalScope> scopeStack;
+struct FuncHeader {
+   Type* return_type;
+   std::vector<FuncParam> params;
+   bool equals(FuncHeader* other);
+   FuncHeader(FuncDecl* x);
+};
 
-   FunctionScope() {
-      scopeStack = std::vector<LocalScope> ();
-   }
-
-   void pushLocalScope();
-   void popLocalScope();
-   
-   //returns whether the symbol was added correctly
-   //(i.e. it did not already exist)
-   bool addSymbol(std::string name, std::string type);
-
-   bool containsSymbol(std::string name, std::string& type);
-   bool containsSymbol(std::string name);
+struct Scope {
+   std::unordered_map<std::string,Value*> ident2value;
+   std::map<std::string,Type*> ident2type; //for typedefs, structs, enums and so on
 };
 
 struct SymbolTable {
-   FunctionScope* currentFunction;
-   
-   //empties the scope stack of currentFunction,
-   //gives it an empty first stack and puts the
-   //function parameters in it
-   void initCurrFuncScope(FuncDecl *x); 
-
+   SymbolTable();
+   void insert(EnumDecl* x);
+   void insert(TypedefDecl* x);
+   void insert(StructDecl* x);
+   void insert(FuncDecl* x);
+   void insert(ParamDecl* x);
+   bool contains(FuncDecl* x);
+   std::vector<Scope> scope_stack;
+   std::unordered_map<std::string,std::vector<FuncHeader*> > ident2func;
 };
 
 class TypeChecker : public AstVisitor, public ReadWriter {
 private:
-   
-   std::string get_pos(AstNode*);
-   bool is_boolean_expr(AstNode*);
-   std::string _curr;
-   
    SymbolTable symTable;
 
-   Type* typespec_type; //updated by visit_typespec
+   Type expr_value; //updated by expressions
 
 
 public:
