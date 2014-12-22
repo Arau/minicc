@@ -8,22 +8,23 @@
 #include <set>
 #include "ast.hh"
 
-/* Missing support for array and object types */
-
+/* Missing subclasses: map, array, class, ... */
 struct Type {
-   virtual Type();
-   virtual Type(TypeSpec* x);
-   virtual Type(Type t);
+   virtual Type() {};
+   virtual Type(TypeSpec* x) {};
+   virtual Type(Type t) {};
    virtual std::string to_string() = 0;
-   virtual std::string class_str() = 0;   
+   virtual std::string class_str() = 0;
 };
 
 struct Basic : Type {
+   Basic(Basic *t);
    char basic_types[][80] = {"int", "float", "char", "double", "string", "bool", ""};
    std::string name;
 };
 
 struct Struct : Type {
+   Struct(Struct *t);
    struct Struct_field {
       Type* type;
       std::string name;
@@ -34,6 +35,7 @@ struct Struct : Type {
 };
 
 struct Enum : Type {
+   Enum(Enum *t);
    struct Enum_field {
       std::string name;
       int value;
@@ -47,15 +49,18 @@ struct Enum : Type {
 };
 
 struct Vector : Type {
+   Vector(Vector *t);
    Type* content;
 };
 
 struct Typedef : Type {
+   Typedef(Typedef *t);
    std::string name;
    Type* real;
 };
 
 struct Pointer : Type {
+   Pointer(Pointer *t);
    Type* pointed;
 };
 
