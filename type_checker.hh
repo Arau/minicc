@@ -59,36 +59,21 @@ struct Pointer : Type {
    Type* pointed;
 };
 
-
-struct Value {
+struct Variable {
    std::string name;
    Type type;
+   //attributes for more advanced analysis, not used for now
    bool initialized;
-   bool known_value; //for static evaluation, not used for now
+   bool known_value; 
    bool reference;
    bool is_const;
    bool assignable;
-
-   //basic types:
-   int int_value;
-   bool bool_value;
-   char char_value;
-   std::string string_value;
-   float float_value;
-   double double_value;
-   //struct types
-   std::vector<Value> struct_field_values;
-   //enum types
-   std::string item;
-   //vector types
-   std::vector<Value> elements;
 };
 
 struct FuncParam {
    std::string name;
    Type* type;
    bool ref;
-   Value* init;
 };
 
 struct FuncHeader {
@@ -99,7 +84,7 @@ struct FuncHeader {
 };
 
 struct Scope {
-   std::unordered_map<std::string,Value*> ident2value;
+   std::unordered_map<std::string,Value*> ident2variable;
    std::map<std::string,Type*> ident2type; //for typedefs, structs, enums and so on
 };
 

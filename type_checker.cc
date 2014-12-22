@@ -31,39 +31,6 @@ Struct_field::Struct_field(const Struct_field &f) {
    name = t.name;
 }
 
-string Type::to_string() {
-   if (T == basic) {
-      return basic_name;
-   }
-   if (T == strct) {
-      string s = "struct{";
-      for (int i = 0; i < (int) struct_fields.size(); i++) {
-         if (i != 0) s += ",";
-         s += struct_fields[i].name + "(" + struct_fields[i].type->to_string() + ")";
-      }
-      return s + "}";
-   }
-   if (T == enm) {
-      string s = "enum{";
-      for (int i = 0; i < (int) enum_fields.size(); i++) {
-         if (i != 0) s += ",";
-         s += enum_fields[i].name + "(" + std::to_string(enum_fields[i].value) + ")";
-      }
-      return s + "}";
-   }
-   if (T == vec) {
-      return "vector<" + content->to_string() + ">";
-   }
-   if (T == alias) {
-      //return "alias(" + alias_name + ":" + to_string(real) + ")";
-      return real->to_string();
-   }
-   if (T == pointer) {
-      return "*(" + pointed->to_string() + ")";
-   }
-   return "cannot reach here";
-}
-
 string Basic::to_string() {
    return name;
 }
