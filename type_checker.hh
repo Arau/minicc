@@ -8,51 +8,57 @@
 #include <set>
 #include "ast.hh"
 
-/* Missing support for array and object types
+/* Missing support for array and object types */
 
-*/
-char basic_types[][80] = {"int", "float", "char", "double", "string", "bool", ""};
-
-struct Type;
-struct Struct_field {
-   Type* type;
-   std::string name;
-   Struct_field() {};
-   Struct_field(Struct_field f);
-};
-
-struct Enum_field {
-   std::string name;
-   int value;
-   Enum_field() {};
-   Enum_field(Enum_field f) {
-      name = f.name;
-      value = f.value;
-   }
-};
-
-enum type_class { basic, strct, enm, vec, alias, pointer};
 struct Type {
-   type_class T;
-   //basic types:
-   std::string basic_name;
-   //struct types:
-   std::vector<Struct_field> struct_fields;
-   //enum types:
-   std::vector<Enum_field> enum_fields;
-   //vector types:
-   Type* content;
-   //alias types
-   std::string alias_name;
-   Type* real;
-   //pointer types:
-   Type* pointed;
-   Type();
-   Type(TypeSpec* x);
-   Type(Type t);
-   std::string to_string();
-   std::string class_str();
+   virtual Type();
+   virtual Type(TypeSpec* x);
+   virtual Type(Type t);
+   virtual std::string to_string() = 0;
+   virtual std::string class_str() = 0;   
 };
+
+struct Basic : Type {
+   char basic_types[][80] = {"int", "float", "char", "double", "string", "bool", ""};
+   std::string name;
+};
+
+struct Struct : Type {
+   struct Struct_field {
+      Type* type;
+      std::string name;
+      Struct_field() {};
+      Struct_field(Struct_field f);
+   };
+   std::vector<Struct_field> fields;
+};
+
+struct Enum : Type {
+   struct Enum_field {
+      std::string name;
+      int value;
+      Enum_field() {};
+      Enum_field(Enum_field f) {
+         name = f.name;
+         value = f.value;
+      }
+   };
+   std::vector<Enum_field> fields;
+};
+
+struct Vector : Type {
+   Type* content;
+};
+
+struct Typedef : Type {
+   std::string name;
+   Type* real;
+};
+
+struct Pointer : Type {
+   Type* pointed;
+};
+
 
 struct Value {
    std::string name;
