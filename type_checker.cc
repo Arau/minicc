@@ -64,64 +64,113 @@ string Type::to_string() {
    return "cannot reach here";
 }
 
-string Type::class_str() {
-   if (T == basic) return basic_name;
-   if (T == strct) return "struct";
-   if (T == enm) return "enum";
-   if (T == vec) return "vector";
-   if (T == alias) return alias_name;
-   if (T == pointer) return "pointer";
-   return "cannot reach here";
+string Basic::to_string() {
+   return name;
+}
+
+string Struct::to_string() {
+   string s = "struct{";
+   for (int i = 0; i < (int) fields.size(); i++) {
+      if (i != 0) s += ",";
+      s += fields[i].name + "(" + fields[i].type->to_string() + ")";
+   }
+   return s + "}";
+}
+
+string Enum::to_string() {
+   string s = "enum{";
+   for (int i = 0; i < (int) fields.size(); i++) {
+      if (i != 0) s += ",";
+      s += fields[i].name + "(" + std::to_string(fields[i].value) + ")";
+   }
+   return s + "}";
+}
+
+string Vector::to_string() {
+   return "vector<" + content->to_string() + ">";
+}
+
+string Typedef::to_string() {
+   return real->to_string();
+}
+
+string Type::to_string() {
+   return "*(" + pointed->to_string() + ")";
+}
+
+string Basic::class_str() {
+   return name;
+}
+
+string Struct::class_str() {
+   return "struct";
+}
+
+string Enum::class_str() {
+   return "enum";
+}
+
+string Vector::class_str() {
+   return "vector";
+}
+
+string Typedef::class_str() {
+   return name;
+}
+
+string Pointer::class_str() {
+   return "pointer";
 }
 
 Type::Type() {}
 
-Type::Type(TypeSpec *x) {
-   T = basic;
-   basic_name = x->id->name; //only works correctly for basic types for now
-
-   // //out() << "Type" << (x->reference ? "<&>" : "") << "(";
-   // //x->id->accept(this);
-   // if (!x->qual.empty()) {
-   //    //out() << ", {";
-   //    int i = 0, numq = 0;
-   //    for (int q = TypeSpec::Const; q <= TypeSpec::Extern; q++) {
-   //       if (find(x->qual.begin(), x->qual.end(), q) != x->qual.end()) {
-   //          if (numq > 0) {
-   //             //out() << ", ";
-   //          }
-   //          //out() << TypeSpec::QualifiersNames[i];
-   //          numq++;
-   //       }
-   //       i++;
-   //    }
-   //    //out() << "}";
-   // }
-   // //out() << ")";
-
+Basic::Basic(TypeSpec *x) {
+   name = x->id->name;
 }
 
-Type::Type(const Type& t) {
-   T = t.T;
-   if (T == basic) {
-      basic_name = t.basic_name;
-   }
-   if (T == strct) {
-      struct_fields = vector<Struct_field> (t.struct_fields);
-   }
-   if (T == enm) {
-      enum_fields = vector<Enum_field> (t.enum_fields);
-   }
-   if (T == vec) {
-      content = Type(*t.content);
-   }
-   if (T == alias) {
-      alias_name = t.alias_name;
-      real = Type(*t.real);
-   }
-   if (T == pointer) {
-      pointer = Type(*t.pointed);
-   }
+Struct::Struct(TypeSpec *x) {
+   //not implemented yet
+}
+
+Enum::Enum(TypeSpec *x) {
+   //not implemented yet
+}
+
+Vector::Vector(TypeSpec *x) {
+   //not implemented yet
+}
+
+Typedef::Typedef(TypeSpec *x) {
+   //not implemented yet
+}
+
+Pointer::Pointer(TypeSpec *x) {
+   //not implemented yet
+}
+
+Basic::Basic(Basic *t) {
+   name = t.name;
+}
+
+Struct::Struct(Struct *t) {
+   fields = vector<Struct_field> (t.fields);
+}
+
+Enum::Enum(Enum *t) {
+   fields = vector<Enum_field> (t.fields);
+}
+
+Vector::Vector(Vector *t) {
+   content = Type(*t.content);
+}
+
+Typedef::Typedef(Typedef *t) {
+   name = t.name;
+   real = Type(*t.real);
+}
+
+Pointer::Pointer(Pointer *t) {
+   pointer = Type(*t.pointed);
 }
 
 SymbolTable::SymbolTable() {
@@ -558,47 +607,10 @@ void TypeChecker::visit_binaryexpr(BinaryExpr *x) {
          add_error(x, "you can only read into variables");
       }
       if (right.is_const) {
-         add_error(x, "you cannot read into a constant variable");
+         add_error(x, "you cannot read into a constant variable '"+right.name+"'");
       }
    }
 
-
-
-   Value leftderef = Reference::deref(left);
-   if (x->kind != Expr::Assignment) {
-      left = Reference::deref(left);
-   }
-
-   // cout << ...
-   if (leftderef == Cout && x->op == "<<") {
-      Value old = _curr;
-      x->right->accept(this);
-      out() << Reference::deref(_curr);
-      _curr = old;
-      return;
-   }
-
-   // cin >> ...
-   if (leftderef == Cin && x->op == ">>") {
-      Value old = _curr;
-      Ident *id = dynamic_cast<Ident*>(x->right);
-      if (id == 0) {
-         _error(_T("La lectura con 'cin' requiere que pongas variables"));
-      }
-      Value right;
-      if (!getenv(id->name, right)) {
-         _error(_T("La variable '%s' no está declarada", id->name.c_str()));
-      }
-      assert(leftderef.as<Istream>() == cin);
-      right = Reference::deref(right);
-      in() >> right;
-      _curr = old;
-      return;
-   }
-
-   x->right->accept(this);
-   Value right = _curr;
-   right = Reference::deref(right);
    if (x->op == "=") {
       visit_binaryexpr_assignment(left, right);
       return;
