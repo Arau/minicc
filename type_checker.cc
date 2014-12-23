@@ -31,6 +31,22 @@ Struct_field::Struct_field(const Struct_field &f) {
    name = t.name;
 }
 
+bool Type::equals(const Type& other) {
+   return to_string().compare(other.to_string()) == 0;
+}
+
+bool Type::is_int() {
+   return to_string().compare("int") == 0;
+}
+
+bool Type::is_bool() {
+   return to_string().compare("bool") == 0;
+}
+
+bool Type::is_char() {
+   return to_string().compare("char") == 0;
+}
+
 string Basic::to_string() {
    return name;
 }
@@ -95,8 +111,34 @@ Basic::Basic(TypeSpec *x) {
    name = x->id->name;
 }
 
+Struct::Struct(StructDecl *x) {
+   for (DeclStmt *decl : x->decls) {
+      for (int i = 0; i < decl->items.size(); i++) {
+         Struct_field f(decl->typespec, decl->items[i].decl->name);
+         for (int j = 0; j < i; j++) {
+            if (fields[j].name == f.name) {
+               add_error(x, "the struct '"+x->id->name+"' has two fields named '"+f.name+"'");
+            }
+         }
+         fields.push_back(f);
+      }
+   }
+}
+
 Struct::Struct(TypeSpec *x) {
    //not implemented yet
+}
+
+Enum::Enum(EnumDecl *x) {
+   for (int i = 0; i < x->values.size(); i++) {
+      Enum_field f(x->values[i].id);
+      for (int j = 0; j < i; j++) {
+         if (fields[j].name == f.name) {
+            add_error(x, "the enum '"+x->name+"' has two fields named '"+f.name+"'");
+         }
+      }
+      fields.push_back(f);
+   }
 }
 
 Enum::Enum(TypeSpec *x) {
@@ -105,6 +147,11 @@ Enum::Enum(TypeSpec *x) {
 
 Vector::Vector(TypeSpec *x) {
    //not implemented yet
+}
+
+Typedef::Typedef(TypedefDecl *x) {
+   name = id;
+   real = new Type(x->decl->typespec);
 }
 
 Typedef::Typedef(TypeSpec *x) {
@@ -144,128 +191,74 @@ SymbolTable::SymbolTable() {
    scope_stack.push_back(Scope()); //scope_stack[0] is the global scope
 }
 
-void SymbolTable::insert(EnumDecl* x) {
-   //search for name clash
-   string id = x->name;
+Variable::Variable() {
+
+}
+
+Variable::Variable(Typespec* t, std::string n, bool ini) {
+    name = n;
+    type = new Type(t);
+    initialized=ini;
+    reference = t->reference;
+    is_const = t->is_const();};
+}
+
+void SymbolTable::check_function_clash(string id, string class_name, AstNode* x) {
    if (ident2func.count(id)) {
-      add_error(x, "there exists a function with the same name as the enum '"+id+"'");
-      return;
+      add_error(x, "there exists a function with the same name as the "+class_name+" '"+id+"'");
    }
+}
+
+void SymbolTable::check_type_clash(string id, string class_name, AstNode* x) {
    for (int i = scope_stack.size()-1; i >= 0; i--) {
       if (scope_stack[i].ident2type.count(id)) {
          Type* t = scope_stack[i].ident2type.find(id)->second;
          if (i == scope_stack.size()-1) {
-            add_error(x, "there exists a "+t->class_str()+" with the same name as the enum '"+id+"'");
+            add_error(x, "there exists a "+t->class_str()+" with the same name as the "+class_name+" '"+id+"'");
             return;
          }
          else {
-            add_warning(x, "the enum '"+id+"' overshadows a previous "+t->class_str());
+            add_warning(x, "the "+class_name+" '"+id+"' overshadows a previous "+t->class_str());
+            return;
          }
       }
    }
-   // create the new enum
-   Type* new_enum = new Type();
-   new_enum->T = enm;
-   for (int i = 0; i < x->values.size(); i++) {
-      Enum_field f;
-      f.name = x->values[i].id;
-      if (x->values[i].has_val) {
-         f.value =  x->values[i].val;
-      }
-      else if (i == 0) {
-         f.value = 0;
-      }
-      else {
-         f.value = new_enum->enum_fields[i-1].value + 1;
-      }
-      for (int j = 0; j < i; j++) {
-         if (new_enum->enum_fields[j].name == f.name) {
-            add_error(x, "the enum '"+id+"' has two fields named '"+f.name+"'");
-         }
-      }
-      new_enum->enum_fields.push_back(f);
-   }
+}
 
-   //insert the new enum
-   scope_stack[scope_stack.size()-1].ident2type[id] = new_enum;
+void SymbolTable::insert(string id, Type* t) {
+   scope_stack[scope_stack.size()-1].ident2type[id] = t;
+}
+
+void SymbolTable::insert(string id, Variable* v) {
+   scope_stack[scope_stack.size()-1].ident2variable[id] = v;
+}
+
+void SymbolTable::insert(EnumDecl* x) {
+   string id = x->name;
+   check_function_clash(id, "enum", x);
+   check_type_clash(id, "enum", x);
+   insert(id, new Enum(x));
 }
 
 void SymbolTable::insert(TypedefDecl* x) {
-   //search for name clash
    string id = x->decl->name;
-   if (ident2func.count(id)) {
-      add_error(x, "there exists a function with the same name as the typedef '"+id+"'");
-      return;
-   }
-   for (int i = scope_stack.size()-1; i >= 0; i--) {
-      if (scope_stack[i].ident2type.count(id)) {
-         Type* t = scope_stack[i].ident2type.find(id)->second;
-         if (i == scope_stack.size()-1) {
-            add_error(x, "there exists a "+t->class_str()+" with the same name as the typedef '"+id+"'");
-            return;
-         }
-         else {
-            add_warning(x, "the typedef '"+id+"' overshadows a previous "+t->class_str());
-         }
-      }
-   }
-   // create the new typedef
-   Type* new_alias = new Type();
-   new_alias->T = alias;
-   new_alias->alias_name = id;
-   new_alias->real = new Type(x->decl->typespec);
-   //insert the new enum
-   scope_stack[scope_stack.size()-1].ident2type[id] = new_alias;
+   check_function_clash(id, "typedef", x);
+   check_type_clash(id, "typedef", x);
+   insert(id, new Typedef(x));
 }
 
 void SymbolTable::insert(StructDecl* x) {
-   //search for name clash
    string id = x->id->name;
-   if (ident2func.count(id)) {
-      add_error(x, "there exists a function with the same name as the struct '"+id+"'");
-      return;
-   }
-   for (int i = scope_stack.size()-1; i >= 0; i--) {
-      if (scope_stack[i].ident2type.count(id)) {
-         Type* t = scope_stack[i].ident2type.find(id)->second;
-         if (i == scope_stack.size()-1) {
-            add_error(x, "there exists a "+t->class_str()+" with the same name as the struct '"+id+"'");
-            return;
-         }
-         else {
-            add_warning(x, "the struct '"+id+"' overshadows a previous "+t->class_str());
-         }
-      }
-   }
-   // create the new struct
-   Type* new_struct = new Type();
-   new_struct->T = strct;
-   for (DeclStmt *decl : x->decls) {
-      for (int i = 0; i < decl->items.size(); i++) {
-         Struct_field f;
-         f.type = new Type(decl->typespec);
-         f.name = decl->items[i].decl->name;
-         for (int j = 0; j < i; j++) {
-            if (new_struct->struct_fields[j].name == f.name) {
-               add_error(x, "the struct '"+id"' has two fields named '"+f.name+"'");
-            }
-         }
-         new_struct->struct_fields.push_back(f);
-      }
-   }
-   //to do: detect repeated fields
-   //insert the new enum
-   scope_stack[scope_stack.size()-1].ident2type[id] = new_struct;
+   check_function_clash(id, "struct", x);
+   check_type_clash(id, "struct", x);
+   insert(id, new Struct(x));
 }
 
 FuncHeader::FuncHeader(FuncDecl* x) {
    return_type = new Type(x->return_typespec);
    for (int i = 0; i < x->params.size(); i++) {
-      FuncParam p;
-      p.name = x->params[i]->name;
-      p.type = new Type(x->params[i]->typespec);
-      p.ref = x->params[i]->typespec->reference;
-      p.init = NULL; //default value for parameters not accepted by the AST for now
+      auto param x->params[i];
+      FuncParam p(param->typespec, param->name);
       for (int j = 0; j < i; j++) {
          if (params[j].name == p.name) {
             add_error(x, "the function '"+x->id->name+"' has two parameters named '"+p.name+"'");
@@ -303,12 +296,10 @@ void SymbolTable::insert(FuncDecl* x) {
    string id = x->id->name;
    if (scope_stack[0].ident2type.count(id)) {
       Type* t = scope_stack[0].ident2type.find(id)->second;
-      add_error(x, "there exists a "+t->class_str()+" with the same name as the function '"+id+"'");
-      return;
+      add_warning(x, "there exists a "+t->class_str()+" with the same name as the function '"+id+"'");
    }
    if (scope_stack[0].ident2value.count(id)) {
-      add_error(x, "there exists a global variable "+scope_stack[0].ident2type.find(id)->first+" with the same name as the function '"+id+"'");
-      return;
+      add_warning(x, "there exists a global variable "+scope_stack[0].ident2type.find(id)->first+" with the same name as the function '"+id+"'");
    }
    // search for header clash and insert new header
    FuncHeader* new_func = new FuncHeader(x);
@@ -341,6 +332,7 @@ void TypeChecker::visit_using(Using* x) {}
 void TypeChecker::visit_paramdecl(ParamDecl *x) {}
 void TypeChecker::visit_ident(Ident *x) {}
 void TypeChecker::visit_typespec(TypeSpec *x) {}
+void TypeChecker::visit_jumpstmt(JumpStmt *x) {}
 
 
 // 'type' declarations //////////////////////////////
@@ -361,24 +353,14 @@ void SymbolTable::insert(ParamDecl* x) {
    //search for name clashes
    string id = x->name;
    if (ident2func.count(id)) {
-      add_error(x, "there exists a function with the same name as the parameter '"+id+"'");
-      return;
+      add_warning(x, "there exists a function with the same name as the parameter '"+id+"'");
    }
    //note that the scope_stack has exactly 2 levels, the global one and the function one
    if (scope_stack[0].ident2value.count(id)) {
       Value* v = scope_stack[0].ident2value.find(id)->second;
       add_warning(x, "the parameter '"+id+"' overshadows a global variable of type '"+v->type->to_string()+"'");
    }
-   //construct new value
-   Value* val = new Value();
-   val->name = id;
-   val->type = new Type(x->typespec);
-   val->initialized = true;
-   val->reference = x->typespec->reference;
-   val->is_const = x->typespec->is_const();
-   val->assignable = true;
-   //insert it
-   scope_stack[1].ident2value[id] = val;
+   insert(id, new Variable(x->typespec, id, val->initialized));
 }
 
 void TypeChecker::visit_funcdecl(FuncDecl *x) {
@@ -451,18 +433,20 @@ void TypeChecker::visit_block(Block *x) {
    symTable.scope_stack.pop_back();
 }
 
-void TypeChecker::visit_ifstmt(IfStmt *x) {
-   //check that the condition types correctly
-   x->cond->accept(this);
-   //and it has type bool
+void check_bool_type(AstNode* x) {
+   x->accept(this);
    if (expr_type.to_string() != "bool") {
       if (expr_type.to_string() == "int") {
-         add_warning(x->cond, "the if condition is implicitly converted from type int to bool");
+         add_warning(x, "the if condition is implicitly converted from type int to bool");
       }
       else {
-         add_error(x->cond, "the if condition does not have type bool");
+         add_error(x, "the if condition does not have type bool");
       }
    }
+}
+
+void TypeChecker::visit_ifstmt(IfStmt *x) {
+   check_bool_type(x->cond);
    symTable.scope_stack.push_back(Scope());
    x->then->accept(this);
    symTable.scope_stack.pop_back();
@@ -474,89 +458,76 @@ void TypeChecker::visit_ifstmt(IfStmt *x) {
 }
 
 void TypeChecker::visit_iterstmt(IterStmt *x) {
+   check_bool_type(x->cond);
+   symTable.scope_stack.push_back(Scope());
    if (x->is_for()) {
-      //out() << "IterStmt<for>(";
       x->init->accept(this);
-      //out() << ", ";
-      x->cond->accept(this);
-      //out() << ", ";
       x->post->accept(this);
-      //out() << ", {" << endl;
-   } else {
-      //out() << "IterStmt<while>(";
-      x->cond->accept(this);
-      //out() << ", {" << endl;
    }
-   indent(+1);
-   //out(beginl);
    x->substmt->accept(this);
-   //out() << endl;
-   indent(-1);
-   //out(beginl) << "})";
+   symTable.scope_stack.pop_back();
 }
 
 void TypeChecker::visit_exprstmt(ExprStmt* x) {
-   //out() << "ExprStmt" << (x->is_return ? "<return>" : "") << "(";
    if (x->expr) {
       x->expr->accept(this);
    }
-   //out() << ")";
-}
-
-void TypeChecker::visit_jumpstmt(JumpStmt *x) {
-   string keyword[3] = { "break", "continue", "goto" };
-   //out() << "JumpStmt<" << keyword[x->kind] << ">(";
-   if (x->kind == JumpStmt::Goto) {
-      //out() << '"' << x->label << '"';
-   }
-   //out() << ")";
 }
 
 void TypeChecker::visit_declstmt(DeclStmt* x) {
    x->typespec->accept(this);
-   bool first = true;
+   Type declared(x->typespec);
+
    for (DeclStmt::Item item : x->items) {
-      item.decl->accept(this);
+      string name = item.decl->name;
       if (item.init) {
          item.init->accept(this);
+         if (not declared.equals(expr_type)) {
+            if ((declared.is_int() or declared.is_bool() or declared.is_char()) and
+               (expr_type.is_int() or expr_type.is_bool() or expr_type.is_char())) {
+               add_warning(item.init, "Expression of type "+expr_type.to_string()+
+                  " implicitly transformed to type "+declared.to_string());
+            }
+            else {
+               add_error(item.init, "Expression of type "+expr_type.to_string()+
+                  " assigned to variable "+name+" of type "+declared.to_string())
+            }
+         }
       }
-      first = false;
+      symTable.insert(name, new Variable(name, declared));
    }
 }
 
 //expressions //////////////////////////////////////////////
 
-
 void TypeChecker::visit_literal(Literal *x) {
-   //simply set expr_value to the correct type
-   expr_value.type.T = basic;
-   expr_value.assignable = false;
+   //simply set expr_type to the correct type
+   expr_type = new Basic();
+   expr_type.assignable = false;
    switch (x->type) {
    case Literal::Int:
-      expr_value.type.basic_name = "int";
-      //out() << "Int<" << x->val.as_int << ">";
+      expr_type.name = "int";
       break;
-
    case Literal::Double:
-      expr_value.type.basic_name = "double";
+      expr_type.name = "double";
       break;
-
    case Literal::Bool:
-      expr_value.type.basic_name = "bool";
+      expr_type.name = "bool";
       break;
-
    case Literal::String:
-      expr_value.type.basic_name = "string";
+      expr_type.name = "string";
       break;
-
    case Literal::Char:
-      expr_value.type.basic_name = "char";
+      expr_type.name = "char";
       break;
-
    default:
       cerr << "unexpected literal" << endl;
       break;
    }
+}
+
+void TypeChecker::visit_binaryexpr_assignment(const Type& t1, const Type& t2) {
+
 }
 
 void TypeChecker::visit_binaryexpr(BinaryExpr *x) {
@@ -570,12 +541,12 @@ void TypeChecker::visit_binaryexpr(BinaryExpr *x) {
    }
    if (x->op == ">>") {
       //how do you handle cin?
-      if (not right.assignable) {
-         add_error(x, "you can only read into variables");
-      }
-      if (right.is_const) {
-         add_error(x, "you cannot read into a constant variable '"+right.name+"'");
-      }
+      // if (not right.assignable) {
+      //    add_error(x, "you can only read into variables");
+      // }
+      // if (right.is_const) {
+      //    add_error(x, "you cannot read into a constant variable '"+right.name+"'");
+      // }
    }
 
    if (x->op == "=") {
@@ -674,110 +645,102 @@ void TypeChecker::visit_binaryexpr(BinaryExpr *x) {
 }
 
 void TypeChecker::visit_exprlist(ExprList *x) {
-   //out() << "{";
    for (int i = 0; i < x->exprs.size(); i++) {
-      if (i > 0) {
-         //out() << ", ";
-      }
       x->exprs[i]->accept(this);
    }
-   //out() << "}";
 }
 
 void TypeChecker::visit_callexpr(CallExpr *x) {
-   //out() << "CallExpr(";
+   //to do.......
+   //here, it should be checked that the type of the arguments is correct
+   //and assign to expr_type the return type of the function
    x->func->accept(this);
-   //out() << ", Args = {";
    for (int i = 0; i < x->args.size(); i++) {
-      if (i > 0) {
-         //out() << ", ";
-      }
       x->args[i]->accept(this);
    }
-   //out() << "})";
 }
 
 void TypeChecker::visit_indexexpr(IndexExpr *x) {
-   //out() << "IndexExpr(";
    x->base->accept(this);
-   //out() << ", ";
+   baseType = expr_type;
+   //here it should be checked that baseType has type vector or array
    x->index->accept(this);
-   //out() << ")";
+   if (not expr_type.is_int()) {
+      add_error(x, "the index of an array or vector should be an integer, but it has type "+expr_type.to_string());
+   }
+   //here, the type of the elements of the vector/array baseType should be assigned to expr_type
 }
 
 void TypeChecker::visit_fieldexpr(FieldExpr *x) {
-   //out() << "FieldExpr";
+   //to do...
+   //imagine that we have s.f, where s is an instance of an struct S
+   //and f a field of S
+   //first, we should find the definition of S in the scope_stack,
+   //then, check if it has a field named f
+   //finally, return the type of that field
    if (x->pointer) {
-      //out() << "<pointer>";
+      //i don't know the meaning of this boolean
    }
-   //out() << "(";
    x->base->accept(this);
-   //out() << ", ";
    x->field->accept(this);
-   //out() << ")";
 }
 
 void TypeChecker::visit_condexpr(CondExpr *x) {
-   if (x->paren) {
-      //out() << "(";
-   }
-   //out() << "CondExpr(";
    x->cond->accept(this);
-   //out() << ", ";
-   x->then->accept(this);
-   //out() << ", ";
-   x->els->accept(this);
-   //out() << ")";
-   if (x->paren) {
-      //out() << ")";
+   if (not expr_type.is_bool()) {
+      add_error(x, "the condition of the ternary operator '?:' should have type bool, but it has type "+expr_type.to_string());
    }
+   x->then->accept(this);
+   Type thenType = type_expr;
+   x->els->accept(this);
+   Type elsType = type_expr;
+   if (not thenType.equal(elsType)) {
+      add_error(x, "the two possible values of the ternary operator '?:' should have the same type, but they have types "+thenType.to_string()+" and "+elsType.to_string());
+   }
+   expr_type = t
 }
 
 void TypeChecker::visit_signexpr(SignExpr *x) {
-   //out() << "SignExpr<";
-   //out() << (x->kind == SignExpr::Positive ? "+" : "-");
-   //out() << ">(";
    x->expr->accept(this);
-   //out() << ")";
+   if (not expr_type.is_int() or expr_type.is_float() or expr_type.is_double()) {
+      add_error(x, "applying a sign operator to an expression of type "+expr_type.to_string()+", but it should have type int, float or double");
+   }
+   //expr_type doesn't change
 }
 
 void TypeChecker::visit_increxpr(IncrExpr *x) {
-   //out() << "IncrExpr<";
-   //out() << (x->kind == IncrExpr::Positive ? "++" : "--") << ", ";
-   //out() << (x->preincr ? "pre" : "post");
-   //out() << ">(";
    x->expr->accept(this);
-   //out() << ")";
+   if (not expr_type.is_int() and not expr_type.is_char()) {
+      add_error(x, "applying an increment operator to an expression of type "+expr_type.to_string()+", but it should have type int or char");
+   }
+   //expr_type doesn't change
 }
 
 void TypeChecker::visit_negexpr(NegExpr *x) {
-   //out() << "NegExpr(";
    x->expr->accept(this);
-   //out() << ")";
+   if (not expr_type.is_bool()) {
+      add_error(x, "applying negation operator to an expression of type "+expr_type.to_string()+", but it should have type bool");
+   }
+   expr_type = Basic("bool");
 }
 
 void TypeChecker::visit_addrexpr(AddrExpr *x) {
-   //out() << "AddrExpr(";
    x->expr->accept(this);
-   //out() << ")";
+   expr_type = Pointer(expr_type);
 }
 
 void TypeChecker::visit_derefexpr(DerefExpr *x) {
-   //out() << "DerefExpr(";
    x->expr->accept(this);
-   //out() << ")";
+   //here, it should be checked that expr_type
+   //is an address, and assign expr_type to ???
 }
 
 
 // i dont know what is this  //////////////////////////////////////////////
 
-void TypeChecker::visit_errorstmt(Stmt::Error *x) {
-   //out() << "ErrorStmt(\"" << x->code << "\")";
-}
+void TypeChecker::visit_errorstmt(Stmt::Error *x) {}
 
-void TypeChecker::visit_errorexpr(Expr::Error *x) {
-   //out() << "ErrorExpr(\"" << x->code << "\")";
-}
+void TypeChecker::visit_errorexpr(Expr::Error *x) {}
 
 
 

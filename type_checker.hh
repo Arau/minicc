@@ -15,9 +15,14 @@ struct Type {
    virtual Type(Type t) {};
    virtual std::string to_string() = 0;
    virtual std::string class_str() = 0;
+   bool equals(const Type& other);
+   bool is_int();
+   bool is_char();
+   bool is_bool();
 };
 
 struct Basic : Type {
+   Basic(std::string name): name(name) {}
    Basic(Basic *t);
    char basic_types[][80] = {"int", "float", "char", "double", "string", "bool", ""};
    std::string name;
@@ -29,6 +34,7 @@ struct Struct : Type {
       Type* type;
       std::string name;
       Struct_field() {};
+      Struct_field(TypeSpec* t, std::string n) { type = new Type(t); name = n; };
       Struct_field(Struct_field f);
    };
    std::vector<Struct_field> fields;
@@ -36,13 +42,15 @@ struct Struct : Type {
 
 struct Enum : Type {
    Enum(Enum *t);
+   Enum(EnumDecl *);
+
    struct Enum_field {
       std::string name;
-      int value;
       Enum_field() {};
+      Enum_field(std::string name):name(name) {};
+
       Enum_field(Enum_field f) {
          name = f.name;
-         value = f.value;
       }
    };
    std::vector<Enum_field> fields;
@@ -55,16 +63,22 @@ struct Vector : Type {
 
 struct Typedef : Type {
    Typedef(Typedef *t);
+   Typedef(TypedefDecl *x);
    std::string name;
    Type* real;
 };
 
 struct Pointer : Type {
+   Pointer(Type* p): pointed(p) {};
    Pointer(Pointer *t);
    Type* pointed;
 };
 
 struct Variable {
+   Variable();
+   Variable(name, type): name(name), type(type) {};
+   Variable(Typespec* t, std::string n, bool ini);
+
    std::string name;
    Type type;
    //attributes for more advanced analysis, not used for now
@@ -75,13 +89,13 @@ struct Variable {
    bool assignable;
 };
 
-struct FuncParam {
-   std::string name;
-   Type* type;
-   bool ref;
-};
-
 struct FuncHeader {
+   struct FuncParam {
+      FuncParam(TypeSpec* t, std::string n, bool r = false) { type=new Type(t); name=n; ref=t->reference };
+      std::string name;
+      Type* type;
+      bool ref;
+   };
    Type* return_type;
    std::vector<FuncParam> params;
    bool equals(FuncHeader* other);
@@ -89,7 +103,7 @@ struct FuncHeader {
 };
 
 struct Scope {
-   std::unordered_map<std::string,Value*> ident2variable;
+   std::unordered_map<std::string,Variable*> ident2variable;
    std::map<std::string,Type*> ident2type; //for typedefs, structs, enums and so on
 };
 
@@ -100,6 +114,10 @@ struct SymbolTable {
    void insert(StructDecl* x);
    void insert(FuncDecl* x);
    void insert(ParamDecl* x);
+   void insert(std::string id, Type* x);
+   void insert(std::string id, Value* x);
+   void check_function_clash(std::string id, std::string class_name, AstNode* x);
+   void check_type_clash(std::string id, std::string class_name, AstNode* x);
    bool contains(FuncDecl* x);
    std::vector<Scope> scope_stack;
    std::unordered_map<std::string,std::vector<FuncHeader*> > ident2func;
