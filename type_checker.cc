@@ -6,6 +6,8 @@
 #include "type_checker.hh"
 using namespace std;
 
+const bool dbg = true;
+
 string get_pos(AstNode *x, int i = 0) {
         int line, col;
         line = x->ini_line();
@@ -347,6 +349,7 @@ void SymbolTable::insert(FuncDecl* x) {
 }
 
 void TypeChecker::visit_program(Program* x) {
+   if (dbg) cout << "visit program" << endl;
    symTable = SymbolTable();
    for (AstNode* n : x->nodes) {
       n->accept(this);
@@ -422,6 +425,7 @@ void TypeChecker::visit_arraydecl(ArrayDecl *x) {
 }
 
 void TypeChecker::visit_vardecl(VarDecl *x) {
+   if (dbg) cout << "visit vardecl" << endl;
    //if (x->kind == Decl::Pointer_type) {
       //out() << "*";
    //}
@@ -453,6 +457,7 @@ void TypeChecker::visit_objdecl(ObjDecl *x) {
 // statements //////////////////////////////////////////////
 
 void TypeChecker::visit_block(Block *x) {
+   if (dbg) cout << "visit block" << endl;
    if (x->stmts.empty()) return;
    symTable.scope_stack.push_back(Scope());
    for (Stmt *s : x->stmts) {
@@ -468,7 +473,7 @@ void TypeChecker::check_bool_type(AstNode* x) {
          add_warning(x, "the if condition is implicitly converted from type int to bool");
       }
       else {
-         add_error(x, "the if condition does not have type bool");
+         add_error(x, "the if condition has type "+expr_type->to_string()+" instead of bool");
       }
    }
 }
@@ -497,6 +502,7 @@ void TypeChecker::visit_iterstmt(IterStmt *x) {
 }
 
 void TypeChecker::visit_exprstmt(ExprStmt* x) {
+   if (dbg) cout << "visit exprstmt" << endl;
    if (x->expr) {
       x->expr->accept(this);
    }

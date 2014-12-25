@@ -2,4 +2,4 @@ int main() {
 	if ('a') { }
 }
 [[err]]--------------------------------------------------
-2,6: char expression in if condition
+2,6: the if condition has type char instead of bool
