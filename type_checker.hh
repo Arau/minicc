@@ -9,78 +9,98 @@
 #include "ast.hh"
 
 /* Missing subclasses: map, array, class, ... */
-struct Type {
-   virtual Type() {};
-   virtual Type(TypeSpec* x) {};
-   virtual Type(Type t) {};
-   virtual std::string to_string() = 0;
-   virtual std::string class_str() = 0;
-   bool equals(const Type& other);
-   bool is_int();
-   bool is_char();
-   bool is_bool();
+struct Var_type {
+   Var_type() {};
+   virtual std::string to_string() const = 0;
+   virtual std::string class_str() const = 0;
+   virtual Var_type* copy() const = 0;
+   static Var_type* convertTypeSpec(const TypeSpec* t);
+   bool equals(const Var_type& other) const;
+   bool is_int() const;
+   bool is_char() const;
+   bool is_bool() const;
+   bool is_float() const;
+   bool is_double() const;
 };
 
-struct Basic : Type {
-   Basic(std::string name): name(name) {}
-   Basic(Basic *t);
-   char basic_types[][80] = {"int", "float", "char", "double", "string", "bool", ""};
+//basic_types: "int", "float", "char", "double", "string", "bool"
+struct Basic_type : Var_type {
+   Basic_type() {}
+   Basic_type(std::string name): name(name) {}
+   Basic_type(const Basic_type *t);
    std::string name;
+   std::string to_string() const;
+   std::string class_str() const;
+   Var_type* copy() const;
 };
 
-struct Struct : Type {
-   Struct(Struct *t);
-   struct Struct_field {
-      Type* type;
-      std::string name;
-      Struct_field() {};
-      Struct_field(TypeSpec* t, std::string n) { type = new Type(t); name = n; };
-      Struct_field(Struct_field f);
-   };
+struct Struct_field {
+   Var_type* type;
+   std::string name;
+   Struct_field() {};
+   Struct_field(TypeSpec* t, std::string n);
+   Struct_field(const Struct_field& f);
+};
+
+struct Struct_type : Var_type {
+   Struct_type(const Struct_type *t);
+   Struct_type(StructDecl *x);
    std::vector<Struct_field> fields;
+   std::string to_string() const;
+   std::string class_str() const;
+   Var_type* copy() const;
 };
 
-struct Enum : Type {
-   Enum(Enum *t);
-   Enum(EnumDecl *);
-
-   struct Enum_field {
-      std::string name;
-      Enum_field() {};
-      Enum_field(std::string name):name(name) {};
-
-      Enum_field(Enum_field f) {
-         name = f.name;
-      }
-   };
-   std::vector<Enum_field> fields;
-};
-
-struct Vector : Type {
-   Vector(Vector *t);
-   Type* content;
-};
-
-struct Typedef : Type {
-   Typedef(Typedef *t);
-   Typedef(TypedefDecl *x);
+struct Enum_field {
    std::string name;
-   Type* real;
+   Enum_field() {};
+   Enum_field(std::string name):name(name) {};
+   Enum_field(const Enum_field &f): name(f.name) {};
 };
 
-struct Pointer : Type {
-   Pointer(Type* p): pointed(p) {};
-   Pointer(Pointer *t);
-   Type* pointed;
+struct Enum_type : Var_type {
+   Enum_type(const Enum_type *t);
+   Enum_type(EnumDecl *);
+   std::vector<Enum_field> fields;
+   std::string to_string() const;
+   std::string class_str() const;
+   Var_type* copy() const;
+};
+
+struct Vector_type : Var_type {
+   Vector_type(const Vector_type *t);
+   Var_type* content;
+   std::string to_string() const;
+   std::string class_str() const;
+   Var_type* copy() const;
+};
+
+struct Typedef_type : Var_type {
+   Typedef_type(const Typedef_type *t);
+   Typedef_type(TypedefDecl *x);
+   std::string name;
+   Var_type* real;
+   std::string to_string() const;
+   std::string class_str() const;
+   Var_type* copy() const;
+};
+
+struct Pointer_type : Var_type {
+   Pointer_type(const Pointer_type *t);
+   Pointer_type(const Var_type *pointed);
+   Var_type* pointed;
+   std::string to_string() const;
+   std::string class_str() const;
+   Var_type* copy() const;
 };
 
 struct Variable {
-   Variable();
-   Variable(name, type): name(name), type(type) {};
-   Variable(Typespec* t, std::string n, bool ini);
+   Variable() {};
+   Variable(std::string n, Var_type* t);
+   Variable(TypeSpec* t, std::string n);
 
    std::string name;
-   Type type;
+   Var_type* type;
    //attributes for more advanced analysis, not used for now
    bool initialized;
    bool known_value; 
@@ -89,14 +109,15 @@ struct Variable {
    bool assignable;
 };
 
+struct FuncParam {
+   FuncParam(TypeSpec* t, std::string n);
+   std::string name;
+   Var_type* type;
+   bool ref;
+};
+
 struct FuncHeader {
-   struct FuncParam {
-      FuncParam(TypeSpec* t, std::string n, bool r = false) { type=new Type(t); name=n; ref=t->reference };
-      std::string name;
-      Type* type;
-      bool ref;
-   };
-   Type* return_type;
+   Var_type* return_type;
    std::vector<FuncParam> params;
    bool equals(FuncHeader* other);
    FuncHeader(FuncDecl* x);
@@ -104,7 +125,7 @@ struct FuncHeader {
 
 struct Scope {
    std::unordered_map<std::string,Variable*> ident2variable;
-   std::map<std::string,Type*> ident2type; //for typedefs, structs, enums and so on
+   std::map<std::string,Var_type*> ident2type; //for typedefs, structs, enums and so on
 };
 
 struct SymbolTable {
@@ -114,8 +135,8 @@ struct SymbolTable {
    void insert(StructDecl* x);
    void insert(FuncDecl* x);
    void insert(ParamDecl* x);
-   void insert(std::string id, Type* x);
-   void insert(std::string id, Value* x);
+   void insert(std::string id, Var_type* x);
+   void insert(std::string id, Variable* x);
    void check_function_clash(std::string id, std::string class_name, AstNode* x);
    void check_type_clash(std::string id, std::string class_name, AstNode* x);
    bool contains(FuncDecl* x);
@@ -127,9 +148,10 @@ class TypeChecker : public AstVisitor, public ReadWriter {
 private:
    SymbolTable symTable;
 
-   Type expr_value; //updated by expressions
+   Var_type* expr_type; //updated by expressions
 
-
+   void check_bool_type(AstNode* x);
+   void visit_binaryexpr_assignment(const Var_type& t1, const Var_type& t2);
 public:
    TypeChecker(std::ostream *o = &std::cout)
       : ReadWriter(o) {}

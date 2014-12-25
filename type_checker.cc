@@ -26,32 +26,52 @@ void add_warning(AstNode *x, string msg, int i = 0) {
    add_error(x, msg);
 }
 
-Struct_field::Struct_field(const Struct_field &f) {
-   type = new Type(*f.type);
-   name = t.name;
+//so far only supports basic types
+//but it should support all
+Var_type* Var_type::convertTypeSpec(const TypeSpec* x) {
+   return new Basic_type(x->id->name);
 }
 
-bool Type::equals(const Type& other) {
+Struct_field::Struct_field(TypeSpec* t, std::string n) {
+   type = Var_type::convertTypeSpec(t); name = n;
+}
+
+Struct_field::Struct_field(const Struct_field &f) {
+   type = f.type->copy();
+   name = f.name;
+}
+
+bool Var_type::equals(const Var_type& other) const {
    return to_string().compare(other.to_string()) == 0;
 }
 
-bool Type::is_int() {
+bool Var_type::is_int() const {
    return to_string().compare("int") == 0;
 }
 
-bool Type::is_bool() {
+bool Var_type::is_bool() const {
    return to_string().compare("bool") == 0;
 }
 
-bool Type::is_char() {
+bool Var_type::is_char() const {
    return to_string().compare("char") == 0;
 }
 
-string Basic::to_string() {
+bool Var_type::is_float() const {
+   return to_string().compare("float") == 0;
+}
+
+bool Var_type::is_double() const {
+   return to_string().compare("double") == 0;
+}
+
+
+
+string Basic_type::to_string() const {
    return name;
 }
 
-string Struct::to_string() {
+string Struct_type::to_string() const {
    string s = "struct{";
    for (int i = 0; i < (int) fields.size(); i++) {
       if (i != 0) s += ",";
@@ -60,58 +80,52 @@ string Struct::to_string() {
    return s + "}";
 }
 
-string Enum::to_string() {
+string Enum_type::to_string() const {
    string s = "enum{";
    for (int i = 0; i < (int) fields.size(); i++) {
       if (i != 0) s += ",";
-      s += fields[i].name + "(" + std::to_string(fields[i].value) + ")";
+      s += fields[i].name;
    }
    return s + "}";
 }
 
-string Vector::to_string() {
+string Vector_type::to_string() const {
    return "vector<" + content->to_string() + ">";
 }
 
-string Typedef::to_string() {
+string Typedef_type::to_string() const {
    return real->to_string();
 }
 
-string Type::to_string() {
+string Pointer_type::to_string() const {
    return "*(" + pointed->to_string() + ")";
 }
 
-string Basic::class_str() {
+string Basic_type::class_str() const {
    return name;
 }
 
-string Struct::class_str() {
+string Struct_type::class_str() const {
    return "struct";
 }
 
-string Enum::class_str() {
+string Enum_type::class_str() const {
    return "enum";
 }
 
-string Vector::class_str() {
+string Vector_type::class_str() const {
    return "vector";
 }
 
-string Typedef::class_str() {
+string Typedef_type::class_str() const {
    return name;
 }
 
-string Pointer::class_str() {
+string Pointer_type::class_str() const {
    return "pointer";
 }
 
-Type::Type() {}
-
-Basic::Basic(TypeSpec *x) {
-   name = x->id->name;
-}
-
-Struct::Struct(StructDecl *x) {
+Struct_type::Struct_type(StructDecl *x) {
    for (DeclStmt *decl : x->decls) {
       for (int i = 0; i < decl->items.size(); i++) {
          Struct_field f(decl->typespec, decl->items[i].decl->name);
@@ -125,11 +139,7 @@ Struct::Struct(StructDecl *x) {
    }
 }
 
-Struct::Struct(TypeSpec *x) {
-   //not implemented yet
-}
-
-Enum::Enum(EnumDecl *x) {
+Enum_type::Enum_type(EnumDecl *x) {
    for (int i = 0; i < x->values.size(); i++) {
       Enum_field f(x->values[i].id);
       for (int j = 0; j < i; j++) {
@@ -141,66 +151,78 @@ Enum::Enum(EnumDecl *x) {
    }
 }
 
-Enum::Enum(TypeSpec *x) {
-   //not implemented yet
+Typedef_type::Typedef_type(TypedefDecl *x) {
+   name = x->decl->name;
+   real = Var_type::convertTypeSpec(x->decl->typespec);
 }
 
-Vector::Vector(TypeSpec *x) {
-   //not implemented yet
+Basic_type::Basic_type(const Basic_type *t) {
+   name = t->name;
 }
 
-Typedef::Typedef(TypedefDecl *x) {
-   name = id;
-   real = new Type(x->decl->typespec);
+Struct_type::Struct_type(const Struct_type *t) {
+   fields = vector<Struct_field> (t->fields);
 }
 
-Typedef::Typedef(TypeSpec *x) {
-   //not implemented yet
+Enum_type::Enum_type(const Enum_type *t) {
+   fields = vector<Enum_field> (t->fields);
 }
 
-Pointer::Pointer(TypeSpec *x) {
-   //not implemented yet
+Vector_type::Vector_type(const Vector_type *t) {
+   content = t->content->copy();
 }
 
-Basic::Basic(Basic *t) {
-   name = t.name;
+Typedef_type::Typedef_type(const Typedef_type *t) {
+   name = t->name;
+   real = t->real->copy();
 }
 
-Struct::Struct(Struct *t) {
-   fields = vector<Struct_field> (t.fields);
+Pointer_type::Pointer_type(const Var_type* pointed) {
+   pointed = pointed->copy();
 }
 
-Enum::Enum(Enum *t) {
-   fields = vector<Enum_field> (t.fields);
+Pointer_type::Pointer_type(const Pointer_type *t) {
+   pointed = t->pointed->copy();
 }
 
-Vector::Vector(Vector *t) {
-   content = Type(*t.content);
+Var_type* Basic_type::copy() const {
+   return new Basic_type(this);
 }
 
-Typedef::Typedef(Typedef *t) {
-   name = t.name;
-   real = Type(*t.real);
+Var_type* Struct_type::copy() const {
+   return new Struct_type(this); 
 }
 
-Pointer::Pointer(Pointer *t) {
-   pointer = Type(*t.pointed);
+Var_type* Enum_type::copy() const {
+   return new Enum_type(this); 
+}
+
+Var_type* Vector_type::copy() const {
+   return new Vector_type(this); 
+}
+
+Var_type* Typedef_type::copy() const {
+   return new Typedef_type(this); 
+}
+
+Var_type* Pointer_type::copy() const {
+   return new Pointer_type(this); 
 }
 
 SymbolTable::SymbolTable() {
    scope_stack.push_back(Scope()); //scope_stack[0] is the global scope
 }
 
-Variable::Variable() {
-
+Variable::Variable(string n, Var_type* t) {
+   name = n;
+   type = t->copy();
 }
 
-Variable::Variable(Typespec* t, std::string n, bool ini) {
+Variable::Variable(TypeSpec* t, std::string n) {
     name = n;
-    type = new Type(t);
-    initialized=ini;
+    type = Var_type::convertTypeSpec(t);
     reference = t->reference;
-    is_const = t->is_const();};
+    is_const = t->is_const();
 }
 
 void SymbolTable::check_function_clash(string id, string class_name, AstNode* x) {
@@ -212,7 +234,7 @@ void SymbolTable::check_function_clash(string id, string class_name, AstNode* x)
 void SymbolTable::check_type_clash(string id, string class_name, AstNode* x) {
    for (int i = scope_stack.size()-1; i >= 0; i--) {
       if (scope_stack[i].ident2type.count(id)) {
-         Type* t = scope_stack[i].ident2type.find(id)->second;
+         Var_type* t = scope_stack[i].ident2type.find(id)->second;
          if (i == scope_stack.size()-1) {
             add_error(x, "there exists a "+t->class_str()+" with the same name as the "+class_name+" '"+id+"'");
             return;
@@ -225,7 +247,7 @@ void SymbolTable::check_type_clash(string id, string class_name, AstNode* x) {
    }
 }
 
-void SymbolTable::insert(string id, Type* t) {
+void SymbolTable::insert(string id, Var_type* t) {
    scope_stack[scope_stack.size()-1].ident2type[id] = t;
 }
 
@@ -237,27 +259,33 @@ void SymbolTable::insert(EnumDecl* x) {
    string id = x->name;
    check_function_clash(id, "enum", x);
    check_type_clash(id, "enum", x);
-   insert(id, new Enum(x));
+   insert(id, new Enum_type(x));
 }
 
 void SymbolTable::insert(TypedefDecl* x) {
    string id = x->decl->name;
    check_function_clash(id, "typedef", x);
    check_type_clash(id, "typedef", x);
-   insert(id, new Typedef(x));
+   insert(id, new Typedef_type(x));
 }
 
 void SymbolTable::insert(StructDecl* x) {
    string id = x->id->name;
    check_function_clash(id, "struct", x);
    check_type_clash(id, "struct", x);
-   insert(id, new Struct(x));
+   insert(id, new Struct_type(x));
+}
+
+FuncParam::FuncParam(TypeSpec* t, std::string n) {
+   type= Var_type::convertTypeSpec(t);
+   name=n;
+   ref=t->reference;
 }
 
 FuncHeader::FuncHeader(FuncDecl* x) {
-   return_type = new Type(x->return_typespec);
+   return_type = Var_type::convertTypeSpec(x->return_typespec);
    for (int i = 0; i < x->params.size(); i++) {
-      auto param x->params[i];
+      auto param = x->params[i];
       FuncParam p(param->typespec, param->name);
       for (int j = 0; j < i; j++) {
          if (params[j].name == p.name) {
@@ -295,10 +323,10 @@ void SymbolTable::insert(FuncDecl* x) {
    //search for name clash
    string id = x->id->name;
    if (scope_stack[0].ident2type.count(id)) {
-      Type* t = scope_stack[0].ident2type.find(id)->second;
+      Var_type* t = scope_stack[0].ident2type.find(id)->second;
       add_warning(x, "there exists a "+t->class_str()+" with the same name as the function '"+id+"'");
    }
-   if (scope_stack[0].ident2value.count(id)) {
+   if (scope_stack[0].ident2variable.count(id)) {
       add_warning(x, "there exists a global variable "+scope_stack[0].ident2type.find(id)->first+" with the same name as the function '"+id+"'");
    }
    // search for header clash and insert new header
@@ -356,11 +384,11 @@ void SymbolTable::insert(ParamDecl* x) {
       add_warning(x, "there exists a function with the same name as the parameter '"+id+"'");
    }
    //note that the scope_stack has exactly 2 levels, the global one and the function one
-   if (scope_stack[0].ident2value.count(id)) {
-      Value* v = scope_stack[0].ident2value.find(id)->second;
+   if (scope_stack[0].ident2variable.count(id)) {
+      Variable* v = scope_stack[0].ident2variable.find(id)->second;
       add_warning(x, "the parameter '"+id+"' overshadows a global variable of type '"+v->type->to_string()+"'");
    }
-   insert(id, new Variable(x->typespec, id, val->initialized));
+   insert(id, new Variable(x->typespec, id));
 }
 
 void TypeChecker::visit_funcdecl(FuncDecl *x) {
@@ -394,9 +422,9 @@ void TypeChecker::visit_arraydecl(ArrayDecl *x) {
 }
 
 void TypeChecker::visit_vardecl(VarDecl *x) {
-   if (x->kind == Decl::Pointer) {
+   //if (x->kind == Decl::Pointer_type) {
       //out() << "*";
-   }
+   //}
    //out() << '"' << x->name << '"';
    /*
    if (x->init) {
@@ -433,10 +461,10 @@ void TypeChecker::visit_block(Block *x) {
    symTable.scope_stack.pop_back();
 }
 
-void check_bool_type(AstNode* x) {
+void TypeChecker::check_bool_type(AstNode* x) {
    x->accept(this);
-   if (expr_type.to_string() != "bool") {
-      if (expr_type.to_string() == "int") {
+   if (expr_type->to_string() != "bool") {
+      if (expr_type->to_string() == "int") {
          add_warning(x, "the if condition is implicitly converted from type int to bool");
       }
       else {
@@ -476,21 +504,20 @@ void TypeChecker::visit_exprstmt(ExprStmt* x) {
 
 void TypeChecker::visit_declstmt(DeclStmt* x) {
    x->typespec->accept(this);
-   Type declared(x->typespec);
-
+   Var_type* declared = Var_type::convertTypeSpec(x->typespec);
    for (DeclStmt::Item item : x->items) {
       string name = item.decl->name;
       if (item.init) {
          item.init->accept(this);
-         if (not declared.equals(expr_type)) {
-            if ((declared.is_int() or declared.is_bool() or declared.is_char()) and
-               (expr_type.is_int() or expr_type.is_bool() or expr_type.is_char())) {
-               add_warning(item.init, "Expression of type "+expr_type.to_string()+
-                  " implicitly transformed to type "+declared.to_string());
+         if (not declared->equals(*expr_type)) {
+            if ((declared->is_int() or declared->is_bool() or declared->is_char()) and
+               (expr_type->is_int() or expr_type->is_bool() or expr_type->is_char())) {
+               add_warning(item.init, "Expression of type "+expr_type->to_string()+
+                  " implicitly transformed to type "+declared->to_string());
             }
             else {
-               add_error(item.init, "Expression of type "+expr_type.to_string()+
-                  " assigned to variable "+name+" of type "+declared.to_string())
+               add_error(item.init, "Expression of type "+expr_type->to_string()+
+                  " assigned to variable "+name+" of type "+declared->to_string());
             }
          }
       }
@@ -502,23 +529,22 @@ void TypeChecker::visit_declstmt(DeclStmt* x) {
 
 void TypeChecker::visit_literal(Literal *x) {
    //simply set expr_type to the correct type
-   expr_type = new Basic();
-   expr_type.assignable = false;
+   expr_type = new Basic_type();
    switch (x->type) {
    case Literal::Int:
-      expr_type.name = "int";
+      dynamic_cast<Basic_type*>(expr_type)->name = "int";
       break;
    case Literal::Double:
-      expr_type.name = "double";
+      dynamic_cast<Basic_type*>(expr_type)->name = "double";
       break;
    case Literal::Bool:
-      expr_type.name = "bool";
+      dynamic_cast<Basic_type*>(expr_type)->name = "bool";
       break;
    case Literal::String:
-      expr_type.name = "string";
+      dynamic_cast<Basic_type*>(expr_type)->name = "string";
       break;
    case Literal::Char:
-      expr_type.name = "char";
+      dynamic_cast<Basic_type*>(expr_type)->name = "char";
       break;
    default:
       cerr << "unexpected literal" << endl;
@@ -526,15 +552,15 @@ void TypeChecker::visit_literal(Literal *x) {
    }
 }
 
-void TypeChecker::visit_binaryexpr_assignment(const Type& t1, const Type& t2) {
+void TypeChecker::visit_binaryexpr_assignment(const Var_type& t1, const Var_type& t2) {
 
 }
 
 void TypeChecker::visit_binaryexpr(BinaryExpr *x) {
    x->left->accept(this);
-   Type left = expr_type;
+   Var_type* left = expr_type;
    x->right->accept(this);
-   Type right = expr_type;
+   Var_type* right = expr_type;
 
    if (x->op == "<<") {
       //how do you handle cout?
@@ -549,99 +575,99 @@ void TypeChecker::visit_binaryexpr(BinaryExpr *x) {
       // }
    }
 
-   if (x->op == "=") {
-      visit_binaryexpr_assignment(left, right);
-      return;
-   }
-   if (x->op == "+=" || x->op == "-=" || x->op == "*=" || x->op == "/=" ||
-       x->op == "&=" || x->op == "|=" || x->op == "^=") {
-      visit_binaryexpr_op_assignment(x->op[0], left, right);
-      return;
-   } 
-   else if (x->op == "&" || x->op == "|" || x->op == "^") {
-      bool ret = false;
-      switch (x->op[0]) {
-      case '&': ret = visit_bitop<_And>(left, right); break;
-      case '|': ret = visit_bitop<_Or >(left, right); break;
-      case '^': ret = visit_bitop<_Xor>(left, right); break;
-      }
-      if (ret) {
-         return;
-      }
-      _error(_T("Los operandos de '%s' son incompatibles", x->op.c_str()));
-   }
-   else if (x->op == "+" || x->op == "*" || x->op == "-" || x->op == "/") {
-      bool ret = false;
-      switch (x->op[0]) {
-      case '+': {
-         if (left.is<String>() and right.is<String>()) {
-            _curr = Value(left.as<String>() + right.as<String>());
-            ret = true;
-         } else {
-            ret = visit_sumprod<_Add>(left, right);
-         }
-         break;
-      }
-      case '*': ret = visit_sumprod<_Mul>(left, right); break;
-      case '-': ret = visit_sumprod<_Sub>(left, right); break;
-      case '/': ret = visit_sumprod<_Div>(left, right); break;
-      }
-      if (ret) {
-         return;
-      }
-      _error(_T("Los operandos de '%s' son incompatibles", x->op.c_str()));
-   }
-   else if (x->op == "%") {
-      if (left.is<Int>() and right.is<Int>()) {
-         _curr = Value(left.as<Int>() % right.as<Int>());
-         return;
-      }
-      _error(_T("Los operandos de '%s' son incompatibles", "%"));
-   }
-   else if (x->op == "%=") {
-      if (!left.is<Reference>()) {
-         _error(_T("Para usar '%s' se debe poner una variable a la izquierda", x->op.c_str()));
-      }
-      left = Reference::deref(left);
-      if (left.is<Int>() and right.is<Int>()) {
-         left.as<Int>() %= right.as<Int>();
-         return;
-      }
-      _error(_T("Los operandos de '%s' son incompatibles", "%="));
-   }
-   else if (x->op == "&&" or x->op == "and" || x->op == "||" || x->op == "or")  {
-      if (left.is<Bool>() and right.is<Bool>()) {
-         _curr = Value(x->op == "&&" or x->op == "and" 
-                       ? left.as<Bool>() and right.as<Bool>()
-                       : left.as<Bool>() or  right.as<Bool>());
-         return;
-      }
-      _error(_T("Los operandos de '%s' no son de tipo 'bool'", x->op.c_str()));
-   }
-   else if (x->op == "==" || x->op == "!=") {
-      if (left.same_type_as(right)) {
-         _curr = Value(x->op == "==" ? left.equals(right) : !left.equals(right));
-         return;
-      }
-      _error(_T("Los operandos de '%s' no son del mismo tipo", x->op.c_str()));
-   }
-   else if (x->op == "<" || x->op == ">" || x->op == "<=" || x->op == ">=") {
-      bool ret = false;
-      if (x->op[0] == '<') {
-         ret = (x->op.size() == 1 
-                ? visit_comparison<_Lt>(left, right)
-                : visit_comparison<_Le>(left, right));
-      } else {
-         ret = (x->op.size() == 1 
-                ? visit_comparison<_Gt>(left, right)
-                : visit_comparison<_Ge>(left, right));
-      }
-      if (ret) {
-         return;
-      }
-      _error(_T("Los operandos de '%s' no son compatibles", x->op.c_str()));
-   }
-   _error(_T("Interpreter::visit_binaryexpr: UNIMPLEMENTED (%s)", x->op.c_str()));
+   // if (x->op == "=") {
+   //    visit_binaryexpr_assignment(left, right);
+   //    return;
+   // }
+   // if (x->op == "+=" || x->op == "-=" || x->op == "*=" || x->op == "/=" ||
+   //     x->op == "&=" || x->op == "|=" || x->op == "^=") {
+   //    visit_binaryexpr_op_assignment(x->op[0], left, right);
+   //    return;
+   // } 
+   // else if (x->op == "&" || x->op == "|" || x->op == "^") {
+   //    bool ret = false;
+   //    switch (x->op[0]) {
+   //    case '&': ret = visit_bitop<_And>(left, right); break;
+   //    case '|': ret = visit_bitop<_Or >(left, right); break;
+   //    case '^': ret = visit_bitop<_Xor>(left, right); break;
+   //    }
+   //    if (ret) {
+   //       return;
+   //    }
+   //    _error(_T("Los operandos de '%s' son incompatibles", x->op.c_str()));
+   // }
+   // else if (x->op == "+" || x->op == "*" || x->op == "-" || x->op == "/") {
+   //    bool ret = false;
+   //    switch (x->op[0]) {
+   //    case '+': {
+   //       if (left.is<String>() and right.is<String>()) {
+   //          _curr = Value(left.as<String>() + right.as<String>());
+   //          ret = true;
+   //       } else {
+   //          ret = visit_sumprod<_Add>(left, right);
+   //       }
+   //       break;
+   //    }
+   //    case '*': ret = visit_sumprod<_Mul>(left, right); break;
+   //    case '-': ret = visit_sumprod<_Sub>(left, right); break;
+   //    case '/': ret = visit_sumprod<_Div>(left, right); break;
+   //    }
+   //    if (ret) {
+   //       return;
+   //    }
+   //    _error(_T("Los operandos de '%s' son incompatibles", x->op.c_str()));
+   // }
+   // else if (x->op == "%") {
+   //    if (left.is<Int>() and right.is<Int>()) {
+   //       _curr = Value(left.as<Int>() % right.as<Int>());
+   //       return;
+   //    }
+   //    _error(_T("Los operandos de '%s' son incompatibles", "%"));
+   // }
+   // else if (x->op == "%=") {
+   //    if (!left.is<Reference>()) {
+   //       _error(_T("Para usar '%s' se debe poner una variable a la izquierda", x->op.c_str()));
+   //    }
+   //    left = Reference::deref(left);
+   //    if (left.is<Int>() and right.is<Int>()) {
+   //       left.as<Int>() %= right.as<Int>();
+   //       return;
+   //    }
+   //    _error(_T("Los operandos de '%s' son incompatibles", "%="));
+   // }
+   // else if (x->op == "&&" or x->op == "and" || x->op == "||" || x->op == "or")  {
+   //    if (left.is<Bool>() and right.is<Bool>()) {
+   //       _curr = Value(x->op == "&&" or x->op == "and" 
+   //                     ? left.as<Bool>() and right.as<Bool>()
+   //                     : left.as<Bool>() or  right.as<Bool>());
+   //       return;
+   //    }
+   //    _error(_T("Los operandos de '%s' no son de tipo 'bool'", x->op.c_str()));
+   // }
+   // else if (x->op == "==" || x->op == "!=") {
+   //    if (left.same_type_as(right)) {
+   //       _curr = Value(x->op == "==" ? left.equals(right) : !left.equals(right));
+   //       return;
+   //    }
+   //    _error(_T("Los operandos de '%s' no son del mismo tipo", x->op.c_str()));
+   // }
+   // else if (x->op == "<" || x->op == ">" || x->op == "<=" || x->op == ">=") {
+   //    bool ret = false;
+   //    if (x->op[0] == '<') {
+   //       ret = (x->op.size() == 1 
+   //              ? visit_comparison<_Lt>(left, right)
+   //              : visit_comparison<_Le>(left, right));
+   //    } else {
+   //       ret = (x->op.size() == 1 
+   //              ? visit_comparison<_Gt>(left, right)
+   //              : visit_comparison<_Ge>(left, right));
+   //    }
+   //    if (ret) {
+   //       return;
+   //    }
+   //    _error(_T("Los operandos de '%s' no son compatibles", x->op.c_str()));
+   // }
+   // _error(_T("Interpreter::visit_binaryexpr: UNIMPLEMENTED (%s)", x->op.c_str()));
 }
 
 void TypeChecker::visit_exprlist(ExprList *x) {
@@ -662,11 +688,11 @@ void TypeChecker::visit_callexpr(CallExpr *x) {
 
 void TypeChecker::visit_indexexpr(IndexExpr *x) {
    x->base->accept(this);
-   baseType = expr_type;
+   Var_type* baseType = expr_type;
    //here it should be checked that baseType has type vector or array
    x->index->accept(this);
-   if (not expr_type.is_int()) {
-      add_error(x, "the index of an array or vector should be an integer, but it has type "+expr_type.to_string());
+   if (not expr_type->is_int()) {
+      add_error(x, "the index of an array or vector should be an integer, but it has type "+expr_type->to_string());
    }
    //here, the type of the elements of the vector/array baseType should be assigned to expr_type
 }
@@ -687,46 +713,46 @@ void TypeChecker::visit_fieldexpr(FieldExpr *x) {
 
 void TypeChecker::visit_condexpr(CondExpr *x) {
    x->cond->accept(this);
-   if (not expr_type.is_bool()) {
-      add_error(x, "the condition of the ternary operator '?:' should have type bool, but it has type "+expr_type.to_string());
+   if (not expr_type->is_bool()) {
+      add_error(x, "the condition of the ternary operator '?:' should have type bool, but it has type "+expr_type->to_string());
    }
    x->then->accept(this);
-   Type thenType = type_expr;
+   Var_type* thenType = expr_type;
    x->els->accept(this);
-   Type elsType = type_expr;
-   if (not thenType.equal(elsType)) {
-      add_error(x, "the two possible values of the ternary operator '?:' should have the same type, but they have types "+thenType.to_string()+" and "+elsType.to_string());
+   Var_type* elsType = expr_type;
+   if (not thenType->equals(*elsType)) {
+      add_error(x, "the two possible values of the ternary operator '?:' should have the same type, but they have types "+thenType->to_string()+" and "+elsType->to_string());
    }
-   expr_type = t
+   expr_type = thenType->copy();
 }
 
 void TypeChecker::visit_signexpr(SignExpr *x) {
    x->expr->accept(this);
-   if (not expr_type.is_int() or expr_type.is_float() or expr_type.is_double()) {
-      add_error(x, "applying a sign operator to an expression of type "+expr_type.to_string()+", but it should have type int, float or double");
+   if (not expr_type->is_int() or expr_type->is_float() or expr_type->is_double()) {
+      add_error(x, "applying a sign operator to an expression of type "+expr_type->to_string()+", but it should have type int, float or double");
    }
    //expr_type doesn't change
 }
 
 void TypeChecker::visit_increxpr(IncrExpr *x) {
    x->expr->accept(this);
-   if (not expr_type.is_int() and not expr_type.is_char()) {
-      add_error(x, "applying an increment operator to an expression of type "+expr_type.to_string()+", but it should have type int or char");
+   if (not expr_type->is_int() and not expr_type->is_char()) {
+      add_error(x, "applying an increment operator to an expression of type "+expr_type->to_string()+", but it should have type int or char");
    }
    //expr_type doesn't change
 }
 
 void TypeChecker::visit_negexpr(NegExpr *x) {
    x->expr->accept(this);
-   if (not expr_type.is_bool()) {
-      add_error(x, "applying negation operator to an expression of type "+expr_type.to_string()+", but it should have type bool");
+   if (not expr_type->is_bool()) {
+      add_error(x, "applying negation operator to an expression of type "+expr_type->to_string()+", but it should have type bool");
    }
-   expr_type = Basic("bool");
+   expr_type = new Basic_type("bool");
 }
 
 void TypeChecker::visit_addrexpr(AddrExpr *x) {
    x->expr->accept(this);
-   expr_type = Pointer(expr_type);
+   expr_type = new Pointer_type(expr_type);
 }
 
 void TypeChecker::visit_derefexpr(DerefExpr *x) {
