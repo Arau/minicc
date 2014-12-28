@@ -6,7 +6,7 @@
 #include "type_checker.hh"
 using namespace std;
 
-const bool dbg = true;
+const bool dbg = false;
 
 string get_pos(AstNode *x, int i = 0) {
         int line, col;
@@ -31,6 +31,7 @@ void add_warning(AstNode *x, string msg, int i = 0) {
 //so far only supports basic types
 //but it should support all
 Var_type* Var_type::convertTypeSpec(const TypeSpec* x) {
+   if (dbg) cout << "convert typespec" << endl;
    return new Basic_type(x->id->name);
 }
 
@@ -43,8 +44,10 @@ Struct_field::Struct_field(const Struct_field &f) {
    name = f.name;
 }
 
-bool Var_type::equals(const Var_type& other) const {
-   return to_string().compare(other.to_string()) == 0;
+bool Var_type::equals(Var_type* other) const { 
+   string thisstring = to_string();
+   string otherstring = other->to_string();
+   return to_string().compare(other->to_string()) == 0;
 }
 
 bool Var_type::is_int() const {
@@ -321,6 +324,25 @@ bool SymbolTable::contains(FuncDecl* x) {
    return false;
 }
 
+bool SymbolTable::contains(string id) {
+   for (int i = scope_stack.size() - 1; i >= 0; i++) {
+      if (scope_stack[i].ident2variable.count(id)) {
+         return true;
+      }
+   }
+   return false;
+}
+
+Var_type* SymbolTable::getType(string id) {
+   for (int i = scope_stack.size() - 1; i >= 0; i--) {
+      if (scope_stack[i].ident2variable.count(id)) {
+         return scope_stack[i].ident2variable[id]->type->copy();
+      }
+   }
+   return NULL;   
+}
+
+
 void SymbolTable::insert(FuncDecl* x) {
    //search for name clash
    string id = x->id->name;
@@ -361,7 +383,15 @@ void TypeChecker::visit_include(Include* x) {}
 void TypeChecker::visit_macro(Macro* x) {}
 void TypeChecker::visit_using(Using* x) {}
 void TypeChecker::visit_paramdecl(ParamDecl *x) {}
-void TypeChecker::visit_ident(Ident *x) {}
+
+void TypeChecker::visit_ident(Ident *x) {
+   if (dbg) cout << "visit ident" << endl;
+   expr_type = symTable.getType(x->name);
+   if (expr_type == NULL) {
+      add_error(x, "undeclared variable '"+x->name+"'");
+   }
+}
+
 void TypeChecker::visit_typespec(TypeSpec *x) {}
 void TypeChecker::visit_jumpstmt(JumpStmt *x) {}
 
@@ -395,6 +425,7 @@ void SymbolTable::insert(ParamDecl* x) {
 }
 
 void TypeChecker::visit_funcdecl(FuncDecl *x) {
+   if (dbg) cout << "visit funcdecl" << endl;
    if (not x->block) {
       symTable.insert(x);
       return;
@@ -413,6 +444,7 @@ void TypeChecker::visit_funcdecl(FuncDecl *x) {
 // variable declarations //////////////////////////////
 
 void TypeChecker::visit_arraydecl(ArrayDecl *x) {
+   if (dbg) cout << "visit arraydecl" << endl;
    //out() << '"' << x->name << "\"(Size = ";
    x->size->accept(this);
    /*
@@ -438,6 +470,7 @@ void TypeChecker::visit_vardecl(VarDecl *x) {
 }
 
 void TypeChecker::visit_objdecl(ObjDecl *x) {
+   if (dbg) cout << "visit objdecl" << endl;
    //out() << '"' << x->name << "\"(";
    if (!x->args.empty()) {
       //out() << "Args = {";
@@ -509,13 +542,15 @@ void TypeChecker::visit_exprstmt(ExprStmt* x) {
 }
 
 void TypeChecker::visit_declstmt(DeclStmt* x) {
-   x->typespec->accept(this);
-   Var_type* declared = Var_type::convertTypeSpec(x->typespec);
+   if (dbg) cout << "visit declstmt" << endl;
+   //x->typespec->accept(this);
+   Var_type* declared = Var_type::convertTypeSpec(x->typespec);   
    for (DeclStmt::Item item : x->items) {
       string name = item.decl->name;
       if (item.init) {
          item.init->accept(this);
-         if (not declared->equals(*expr_type)) {
+         if (expr_type == NULL) continue;
+         if (not declared->equals(expr_type)) {
             if ((declared->is_int() or declared->is_bool() or declared->is_char()) and
                (expr_type->is_int() or expr_type->is_bool() or expr_type->is_char())) {
                add_warning(item.init, "Expression of type "+expr_type->to_string()+
@@ -534,6 +569,7 @@ void TypeChecker::visit_declstmt(DeclStmt* x) {
 //expressions //////////////////////////////////////////////
 
 void TypeChecker::visit_literal(Literal *x) {
+   if (dbg) cout << "visit literal" << endl;
    //simply set expr_type to the correct type
    expr_type = new Basic_type();
    switch (x->type) {
@@ -558,11 +594,13 @@ void TypeChecker::visit_literal(Literal *x) {
    }
 }
 
-void TypeChecker::visit_binaryexpr_assignment(const Var_type& t1, const Var_type& t2) {
-
+void TypeChecker::visit_binaryexpr_assignment(Var_type* t1, Var_type* t2) {
+   if (dbg) cout << "visit binaryexpr assignment" << endl;
+   expr_type = t2->copy();
 }
 
 void TypeChecker::visit_binaryexpr(BinaryExpr *x) {
+   if (dbg) cout << "visit binary expr" << endl;
    x->left->accept(this);
    Var_type* left = expr_type;
    x->right->accept(this);
@@ -581,10 +619,10 @@ void TypeChecker::visit_binaryexpr(BinaryExpr *x) {
       // }
    }
 
-   // if (x->op == "=") {
-   //    visit_binaryexpr_assignment(left, right);
-   //    return;
-   // }
+   if (x->op == "=") {
+       visit_binaryexpr_assignment(left, right);
+       return;
+   }
    // if (x->op == "+=" || x->op == "-=" || x->op == "*=" || x->op == "/=" ||
    //     x->op == "&=" || x->op == "|=" || x->op == "^=") {
    //    visit_binaryexpr_op_assignment(x->op[0], left, right);
@@ -677,12 +715,14 @@ void TypeChecker::visit_binaryexpr(BinaryExpr *x) {
 }
 
 void TypeChecker::visit_exprlist(ExprList *x) {
+   if (dbg) cout << "visit exprlist" << endl;
    for (int i = 0; i < x->exprs.size(); i++) {
       x->exprs[i]->accept(this);
    }
 }
 
 void TypeChecker::visit_callexpr(CallExpr *x) {
+   if (dbg) cout << "visit callexpr" << endl;
    //to do.......
    //here, it should be checked that the type of the arguments is correct
    //and assign to expr_type the return type of the function
@@ -693,6 +733,7 @@ void TypeChecker::visit_callexpr(CallExpr *x) {
 }
 
 void TypeChecker::visit_indexexpr(IndexExpr *x) {
+   if (dbg) cout << "visit indexexpr" << endl;
    x->base->accept(this);
    Var_type* baseType = expr_type;
    //here it should be checked that baseType has type vector or array
@@ -704,6 +745,7 @@ void TypeChecker::visit_indexexpr(IndexExpr *x) {
 }
 
 void TypeChecker::visit_fieldexpr(FieldExpr *x) {
+   if (dbg) cout << "visit fieldexpr" << endl;
    //to do...
    //imagine that we have s.f, where s is an instance of an struct S
    //and f a field of S
@@ -718,6 +760,7 @@ void TypeChecker::visit_fieldexpr(FieldExpr *x) {
 }
 
 void TypeChecker::visit_condexpr(CondExpr *x) {
+   if (dbg) cout << "visit condexpr" << endl;
    x->cond->accept(this);
    if (not expr_type->is_bool()) {
       add_error(x, "the condition of the ternary operator '?:' should have type bool, but it has type "+expr_type->to_string());
@@ -726,13 +769,14 @@ void TypeChecker::visit_condexpr(CondExpr *x) {
    Var_type* thenType = expr_type;
    x->els->accept(this);
    Var_type* elsType = expr_type;
-   if (not thenType->equals(*elsType)) {
+   if (not thenType->equals(elsType)) {
       add_error(x, "the two possible values of the ternary operator '?:' should have the same type, but they have types "+thenType->to_string()+" and "+elsType->to_string());
    }
    expr_type = thenType->copy();
 }
 
 void TypeChecker::visit_signexpr(SignExpr *x) {
+   if (dbg) cout << "visit signexpr" << endl;
    x->expr->accept(this);
    if (not expr_type->is_int() or expr_type->is_float() or expr_type->is_double()) {
       add_error(x, "applying a sign operator to an expression of type "+expr_type->to_string()+", but it should have type int, float or double");
@@ -741,6 +785,7 @@ void TypeChecker::visit_signexpr(SignExpr *x) {
 }
 
 void TypeChecker::visit_increxpr(IncrExpr *x) {
+   if (dbg) cout << "visit increxpr" << endl;
    x->expr->accept(this);
    if (not expr_type->is_int() and not expr_type->is_char()) {
       add_error(x, "applying an increment operator to an expression of type "+expr_type->to_string()+", but it should have type int or char");
@@ -749,6 +794,7 @@ void TypeChecker::visit_increxpr(IncrExpr *x) {
 }
 
 void TypeChecker::visit_negexpr(NegExpr *x) {
+   if (dbg) cout << "visit negexpr" << endl;
    x->expr->accept(this);
    if (not expr_type->is_bool()) {
       add_error(x, "applying negation operator to an expression of type "+expr_type->to_string()+", but it should have type bool");
@@ -757,11 +803,13 @@ void TypeChecker::visit_negexpr(NegExpr *x) {
 }
 
 void TypeChecker::visit_addrexpr(AddrExpr *x) {
+   if (dbg) cout << "visit addrexpr" << endl;
    x->expr->accept(this);
    expr_type = new Pointer_type(expr_type);
 }
 
 void TypeChecker::visit_derefexpr(DerefExpr *x) {
+   if (dbg) cout << "visit derefexpr" << endl;
    x->expr->accept(this);
    //here, it should be checked that expr_type
    //is an address, and assign expr_type to ???

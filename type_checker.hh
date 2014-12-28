@@ -15,7 +15,7 @@ struct Var_type {
    virtual std::string class_str() const = 0;
    virtual Var_type* copy() const = 0;
    static Var_type* convertTypeSpec(const TypeSpec* t);
-   bool equals(const Var_type& other) const;
+   bool equals(Var_type* other) const;
    bool is_int() const;
    bool is_char() const;
    bool is_bool() const;
@@ -140,6 +140,8 @@ struct SymbolTable {
    void check_function_clash(std::string id, std::string class_name, AstNode* x);
    void check_type_clash(std::string id, std::string class_name, AstNode* x);
    bool contains(FuncDecl* x);
+   bool contains(std::string id);
+   Var_type* getType(std::string id);
    std::vector<Scope> scope_stack;
    std::unordered_map<std::string,std::vector<FuncHeader*> > ident2func;
 };
@@ -151,7 +153,7 @@ private:
    Var_type* expr_type; //updated by expressions
 
    void check_bool_type(AstNode* x);
-   void visit_binaryexpr_assignment(const Var_type& t1, const Var_type& t2);
+   void visit_binaryexpr_assignment(Var_type* t1, Var_type* t2);
 public:
    TypeChecker(std::ostream *o = &std::cout)
       : ReadWriter(o) {}
