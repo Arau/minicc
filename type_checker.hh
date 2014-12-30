@@ -8,12 +8,22 @@
 #include <set>
 #include "ast.hh"
 
+//Represents a "type" specification; it can be a basic type
+//such as int or bool, but also complex types such as struct
+//or enum declarations, in which case it includes the complete definition
+//of the type (e.g. the names and types of the fields)
+/* Existing subclasses: basic, struct, enum, typedef, vector, pointer */
 /* Missing subclasses: map, array, class, ... */
 struct Var_type {
    Var_type() {};
    virtual std::string to_string() const = 0;
+   
+   //returns the "kind" of the type (e.g. struct, enum) without
+   //the details (e.g. the field names); it is used in error messages
    virtual std::string class_str() const = 0;
    virtual Var_type* copy() const = 0;
+
+   //constructs a Var_type from a TypeSpec
    static Var_type* convertTypeSpec(const TypeSpec* t);
    bool equals(Var_type* other) const;
    bool is_int() const;
@@ -123,11 +133,22 @@ struct FuncHeader {
    FuncHeader(FuncDecl* x);
 };
 
+//note that new types (e.g. struct or enum definitions) can
+//be defined in inner scopes, so the scope must include both
+//the table of variables and the table of types
 struct Scope {
    std::unordered_map<std::string,Variable*> ident2variable;
    std::map<std::string,Var_type*> ident2type; //for typedefs, structs, enums and so on
 };
 
+//The symbol table has a stack of scopes such that the scope 0
+//corresponds to the global scope, and additional scopes are
+//added when visiting instruction blocks (for instance, when
+//visiting a function declaration, an if statement, etc)
+//Moreover, the symbol table has a table of function definitions
+//(which are scope independent)
+//Note that a function is not identified only by its name, but also
+//by the number and type of the parameters (what we call the function header)
 struct SymbolTable {
    SymbolTable();
    void insert(EnumDecl* x);
